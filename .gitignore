@@ -1,0 +1,11 @@
+node_modules/
+dist/
+recon-output/
+level1-output/
+.env
+.DS_Store
+playwright-report/
+test-results/
+.omx/
+*.rmeta
+*.so

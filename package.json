@@ -1,0 +1,32 @@
+{
+  "name": "cheetcode-solver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install:browsers": "playwright install chromium",
+    "level1": "tsx src/level1-runner.ts",
+    "level1:llm": "LEVEL1_USE_LLM=1 tsx src/level1-runner.ts",
+    "level2": "tsx src/level2-runner.ts run",
+    "level2:preview": "tsx src/level2-runner.ts preview",
+    "level3": "tsx src/level3-runner.ts run",
+    "level3:catalog": "tsx src/level3-runner.ts catalog",
+    "level3:candidates:check": "tsx src/level3-candidates-check.ts",
+    "level3:coverage": "tsx src/level3-coverage.ts",
+    "level3:offline": "tsx src/level3-offline-runner.ts",
+    "level3:preview": "tsx src/level3-runner.ts preview",
+    "recon": "tsx src/recon.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright": "^1.57.0",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}
