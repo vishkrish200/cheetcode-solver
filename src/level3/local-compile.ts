@@ -23,14 +23,15 @@ export async function compileLevel3Source(
   const config = compilerConfig(language);
   if (!config) return { ok: true };
 
-  const filePath = path.join(runDir, `compile-check-${label}.${config.extension}`);
+  const absoluteRunDir = path.resolve(runDir);
+  const filePath = path.join(absoluteRunDir, `compile-check-${label}.${config.extension}`);
   await fs.writeFile(filePath, code);
 
-  const binaryPath = config.output ? path.join(runDir, `compile-check-${label}${config.output.extension}`) : undefined;
+  const binaryPath = config.output ? path.join(absoluteRunDir, `compile-check-${label}${config.output.extension}`) : undefined;
   const command = [config.bin, ...config.args, filePath, ...(binaryPath ? [...config.output!.args, binaryPath] : [])];
   try {
     await execFileAsync(config.bin, [...config.args, filePath, ...(binaryPath ? [...config.output!.args, binaryPath] : [])], {
-      cwd: runDir,
+      cwd: absoluteRunDir,
       timeout: 10_000,
       maxBuffer: 1024 * 1024
     });

@@ -18,6 +18,7 @@ export interface Level3Challenge {
   spec: string;
   starterCode: string;
   checks: Level3Check[];
+  metadata?: unknown;
 }
 
 export interface Level3Session {

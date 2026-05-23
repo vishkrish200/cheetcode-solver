@@ -38,7 +38,11 @@ export interface Level3Client {
   ) => Promise<FinishResponse>;
 }
 
-export async function createLevel3Client(): Promise<Level3Client> {
+export interface Level3ClientOptions {
+  fingerprintId?: string;
+}
+
+export async function createLevel3Client(options: Level3ClientOptions = {}): Promise<Level3Client> {
   const baseUrl = new URL(TARGET_URL);
   const storage = JSON.parse(await fs.readFile(STORAGE_STATE_PATH, "utf8")) as StorageState;
   const cookie = buildCookieHeader(storage.cookies, baseUrl.hostname);
@@ -46,7 +50,7 @@ export async function createLevel3Client(): Promise<Level3Client> {
     throw new Error(`No cookies for ${baseUrl.hostname} in ${STORAGE_STATE_PATH}. Run npm run recon -- auth:comet first.`);
   }
 
-  const fingerprintId = crypto.randomBytes(16).toString("hex");
+  const fingerprintId = options.fingerprintId ?? crypto.randomBytes(16).toString("hex");
   const commonHeaders = {
     "content-type": "application/json",
     "user-agent":

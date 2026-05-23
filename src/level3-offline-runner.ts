@@ -2,8 +2,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { loadEnvFile } from "./env.js";
-import { solveLevel3WithLlm } from "./level3/llm.js";
-import { compileLevel3Source, type LocalCompileResult } from "./level3/local-compile.js";
+import { loadLevel3CandidateCode } from "./level3/candidates.js";
+import { solveLevel3WithLlmDetailed, type Level3LlmSolveResult } from "./level3/llm.js";
+import type { LocalCompileResult } from "./level3/local-compile.js";
+import { verifyLevel3Source, type Level3LocalVerificationResult } from "./level3/local-verify.js";
+import { shouldRunLevel3LocalSemantics } from "./level3/run-policy.js";
+import { parseLevel3SolverMode, shouldUseLevel3RegisteredCandidate } from "./level3/solver-mode.js";
 import type { Level3Challenge, Level3Session, Level3ValidationResponse } from "./level3/types.js";
 import { writeJson } from "./level1/api.js";
 import { OUTPUT_ROOT, createRunDir } from "./recon/capture.js";
@@ -19,6 +23,8 @@ interface OfflineSummary {
   language: string;
   attempts: number;
   compiled: boolean;
+  locallyVerified?: boolean;
+  initialCodeSource?: string;
   finalCodePath?: string;
   finalCompile?: LocalCompileResult;
 }
@@ -44,24 +50,39 @@ async function main(): Promise<void> {
   console.log(`Source session: ${sourceSessionPath}`);
   console.log(`Artifacts: ${runDir}`);
 
-  let code: string | undefined;
+  const runLocalSemantics = shouldRunLevel3LocalSemantics(process.env);
+  const initial = await loadOfflineInitialCode(challenge);
+  let code: string | undefined = initial.code;
   let compileResult: LocalCompileResult | undefined;
+  let localVerification: Level3LocalVerificationResult | undefined;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const validation = compileResult?.ok === false ? compileFeedback(challenge, compileResult) : undefined;
-    code = await solveLevel3WithLlm(challenge, {
-      previousCode: code,
-      validation
-    });
-    if (!code?.trim()) throw new Error(`LLM returned no code on offline attempt ${attempt}.`);
-
     const label = String(attempt).padStart(2, "0");
+    const validation = compileResult?.ok === false ? compileFeedback(challenge, compileResult) : undefined;
+    if (attempt === 1 && code?.trim()) {
+      console.log(`Using ${initial.source} initial code for ${challenge.taskName} [${challenge.language}].`);
+    } else {
+      const solveResult = await solveLevel3WithLlmDetailed(challenge, {
+        previousCode: code,
+        validation,
+        localVerification
+      });
+      await writeLevel3OfflineLlmTrace(runDir, label, solveResult);
+
+      code = solveResult.code;
+      if (!code?.trim()) throw new Error(`LLM returned no code on offline attempt ${attempt}.`);
+    }
+
     const codePath = path.join(runDir, `attempt-${label}.${sourceExtension(challenge.language)}`);
     await fs.writeFile(codePath, code);
 
-    compileResult = await compileLevel3Source(runDir, label, challenge.language, code);
+    localVerification = await verifyLevel3Source(runDir, label, challenge, code, {
+      skipSemantic: !runLocalSemantics
+    });
+    compileResult = localVerification.compile;
+    await writeJson(path.join(runDir, `local-verify-${label}.json`), localVerification);
     await writeJson(path.join(runDir, `local-compile-${label}.json`), compileResult);
 
-    if (compileResult.ok) {
+    if (localVerification.ok) {
       const summary: OfflineSummary = {
         sourceSessionPath,
         runDir,
@@ -69,15 +90,23 @@ async function main(): Promise<void> {
         language: challenge.language,
         attempts: attempt,
         compiled: true,
+        locallyVerified: runLocalSemantics,
+        initialCodeSource: initial.source,
         finalCodePath: codePath,
         finalCompile: compileResult
       };
       await writeJson(path.join(runDir, "summary.json"), summary);
-      console.log(`Compiled after ${attempt} attempt(s): ${codePath}`);
+      console.log(`${runLocalSemantics ? "Locally verified" : "Compiled"} after ${attempt} attempt(s): ${codePath}`);
       return;
     }
 
-    console.warn(`Offline compile ${attempt} failed: ${(compileResult.error ?? "unknown error").split(/\r?\n/)[0]}`);
+    if (compileResult.ok && localVerification.semantic && !localVerification.semantic.ok) {
+      const passed = localVerification.semantic.checks.filter((check) => check.ok).length;
+      const total = localVerification.semantic.checks.length;
+      console.warn(`Offline semantic verification ${attempt} failed: ${passed}/${total} local checks`);
+    } else {
+      console.warn(`Offline compile ${attempt} failed: ${(compileResult.error ?? "unknown error").split(/\r?\n/)[0]}`);
+    }
   }
 
   const summary: OfflineSummary = {
@@ -87,10 +116,26 @@ async function main(): Promise<void> {
     language: challenge.language,
     attempts: maxAttempts,
     compiled: false,
+    locallyVerified: false,
+    initialCodeSource: initial.source,
     finalCompile: compileResult
   };
   await writeJson(path.join(runDir, "summary.json"), summary);
   throw new Error(`Offline Level 3 did not compile after ${maxAttempts} attempt(s). Artifacts: ${runDir}`);
+}
+
+async function loadOfflineInitialCode(challenge: Level3Challenge): Promise<{ code?: string; source: string }> {
+  const solverMode = parseLevel3SolverMode(process.env.LEVEL3_SOLVER_MODE);
+  const useRegistered =
+    process.env.LEVEL3_OFFLINE_USE_REGISTERED === "1" || shouldUseLevel3RegisteredCandidate(process.env);
+  if (useRegistered) {
+    const candidate = await loadLevel3CandidateCode(challenge.taskName, challenge.language);
+    if (candidate?.trim()) return { code: candidate, source: "registered-candidate" };
+    if (solverMode === "candidate") {
+      throw new Error(`No verified candidate code registered for ${challenge.taskName} [${challenge.language}].`);
+    }
+  }
+  return { source: "llm" };
 }
 
 async function resolveSourceSessionPath(source: string): Promise<string> {
@@ -164,7 +209,33 @@ Environment:
   LEVEL3_LLM_MODEL              Per-level primary model
   LEVEL3_LLM_FALLBACK_MODELS    Comma-separated fallback model list
   SMART_LLM_MODEL               Default strong model for Level 2/3
+  LEVEL3_FUNCTION_DECOMPOSITION=1
+                                  Use locked data-model + per-function workers for fresh solves
+  LEVEL3_SKELETON_HOLES=1         Use locked skeleton + per-hole workers for supported fresh families
+  LEVEL3_DECOMP_WORKER_LLM_MODEL Default worker model is gpt-oss-120b
+  LEVEL3_OFFLINE_USE_REGISTERED=1 Use verified registered candidate before LLM, even if solver mode is dynamic
 `);
+}
+
+async function writeLevel3OfflineLlmTrace(
+  runDir: string,
+  label: string,
+  result: Level3LlmSolveResult
+): Promise<void> {
+  await writeJson(path.join(runDir, `llm-trace-${label}.json`), {
+    contract: result.contract,
+    contractLength: result.contract?.length ?? 0,
+    codeLength: result.code?.length ?? 0,
+    calls: result.calls.map((call) => ({
+      stage: call.stage,
+      model: call.model,
+      rawContent: call.rawContent,
+      rawContentLength: call.rawContent?.length ?? 0,
+      extractedContract: call.extractedContract,
+      extractedCodeLength: call.extractedCodeLength,
+      request: call.request
+    }))
+  });
 }
 
 main().catch((error: unknown) => {
