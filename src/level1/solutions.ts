@@ -70,6 +70,26 @@ const SOLVERS: Record<string, SolverFactory> = {
   return laps * 100;
 }`,
 
+  isSetComplete: () => `function isSetComplete(player1Games, player2Games) {
+  const winnerGames = Math.max(player1Games, player2Games);
+  const margin = Math.abs(player1Games - player2Games);
+  return winnerGames >= 6 && margin >= 2;
+}`,
+
+  estimateTreeAge: () => `function estimateTreeAge(diameterCm) {
+  return Math.round(diameterCm / 2.5);
+}`,
+
+  calculateLoadTime: () => `function calculateLoadTime(images, scripts, cssFiles) {
+  return Number((images * 0.15 + scripts * 0.08 + cssFiles * 0.05).toFixed(2));
+}`,
+
+  convertSignalStrength: () => `function convertSignalStrength(dbm) {
+  if (dbm <= -90) return 0;
+  if (dbm >= -30) return 100;
+  return Math.round(((dbm + 90) * 100) / 60);
+}`,
+
   calculateTaxiFare: () => `function calculateTaxiFare(kilometers) {
   return 3.5 + kilometers * 2;
 }`,
@@ -376,17 +396,20 @@ const SOLVERS: Record<string, SolverFactory> = {
   canHarmonizeIngredients: () => `function canHarmonizeIngredients(ingredients, pairs) {
   const counts = new Map();
   for (const ingredient of ingredients) counts.set(ingredient, (counts.get(ingredient) ?? 0) + 1);
+  const reverse = {};
+  for (const [a, b] of Object.entries(pairs)) {
+    if (reverse[b] == null) reverse[b] = a;
+  }
   const seen = new Set();
   for (const [ingredient, count] of counts) {
     if (seen.has(ingredient)) continue;
-    const partner = pairs[ingredient];
+    const partner = pairs[ingredient] ?? reverse[ingredient];
     if (partner == null) return false;
     if (partner === ingredient) {
       if (count % 2 !== 0) return false;
       seen.add(ingredient);
     } else {
       if ((counts.get(partner) ?? 0) !== count) return false;
-      if (pairs[partner] !== ingredient) return false;
       seen.add(ingredient);
       seen.add(partner);
     }
@@ -891,6 +914,80 @@ const SOLVERS: Record<string, SolverFactory> = {
   return best;
 }`,
 
+  hilbertshedgemaze: () => `function hilbertshedgemaze(input) {
+  const values = input.trim().split(/\\s+/).map(BigInt);
+  let at = 0;
+  const cases = Number(values[at++]);
+  const table = "1300012122133032";
+  const abs = (x) => x < 0n ? -x : x;
+  const next = (n, x, y) => {
+    let xx = 1n << BigInt(n - 1);
+    let yy = 1n << BigInt(n - 1);
+    let d = 0;
+    let i = n - 1;
+    while (x !== xx && y !== yy) {
+      const q = (y > yy ? 2 : 0) + (x > xx ? 1 : 0);
+      d = Number(table[d * 4 + q]);
+      i -= 1;
+      const step = 1n << BigInt(i);
+      xx += (x > xx ? 1n : -1n) * step;
+      yy += (y > yy ? 1n : -1n) * step;
+    }
+    const step = 1n << BigInt(i);
+    if (d === 0) yy += (x !== xx ? 0n : y > yy ? 1n : -1n) * step;
+    if (d === 1) xx += (y !== yy ? 0n : x > xx ? 1n : -1n) * step;
+    if (d === 2) yy += (x !== xx ? 0n : y < yy ? -1n : 1n) * step;
+    if (d === 3) xx += (y !== yy ? 0n : x < xx ? -1n : 1n) * step;
+    return [xx, yy];
+  };
+  const out = [];
+  for (let caseNo = 0; caseNo < cases; caseNo++) {
+    const n = Number(values[at++]);
+    const bound = 1n << BigInt(n);
+    const paths = [];
+    for (let p = 0; p < 2; p++) {
+      const path = [[values[at++] + 1n, values[at++] + 1n]];
+      while (path[path.length - 1][0] > 0n && path[path.length - 1][0] < bound &&
+             path[path.length - 1][1] > 0n && path[path.length - 1][1] < bound) {
+        path.push(next(n, path[path.length - 1][0], path[path.length - 1][1]));
+      }
+      paths.push(path);
+    }
+    let popped = false;
+    while (paths[0].length > 1 && paths[1].length > 1) {
+      const a = paths[0][paths[0].length - 1];
+      const b = paths[1][paths[1].length - 1];
+      if (a[0] !== b[0] || a[1] !== b[1]) break;
+      paths[0].pop();
+      paths[1].pop();
+      popped = true;
+    }
+    let result = 0n;
+    for (const path of paths) {
+      for (let i = 1; i < path.length; i++) {
+        result += abs(path[i][0] - path[i - 1][0]) + abs(path[i][1] - path[i - 1][1]);
+      }
+    }
+    const a = paths[0][paths[0].length - 1];
+    const b = paths[1][paths[1].length - 1];
+    if (popped || (a[0] === b[0] && a[1] === b[1]) ||
+        (a[0] <= 0n && b[0] <= 0n) || (a[0] >= bound && b[0] >= bound) ||
+        (a[1] <= 0n && b[1] <= 0n) || (a[1] >= bound && b[1] >= bound)) {
+      result += abs(a[0] - b[0]) + abs(a[1] - b[1]);
+    } else {
+      const cornerCosts = [
+        abs(a[0]) + abs(a[1]) + abs(b[0]) + abs(b[1]),
+        abs(a[0] - bound) + abs(a[1]) + abs(b[0] - bound) + abs(b[1]),
+        abs(a[0]) + abs(a[1] - bound) + abs(b[0]) + abs(b[1] - bound),
+        abs(a[0] - bound) + abs(a[1] - bound) + abs(b[0] - bound) + abs(b[1] - bound)
+      ];
+      result += cornerCosts.reduce((best, value) => value < best ? value : best);
+    }
+    out.push(String(result));
+  }
+  return out.join("\\n");
+}`,
+
   countBuildOrders: () => `function countBuildOrders(tasks, dependencies) {
   const n = tasks.length;
   const index = new Map(tasks.map((task, i) => [task, i]));
@@ -937,11 +1034,17 @@ const SOLVERS: Record<string, SolverFactory> = {
   for (const value of engagement) {
     if (value > baseline) run += 1;
     else {
-      if (run >= minDuration) count += 1;
+      if (run >= minDuration) {
+        const choices = run - minDuration + 1;
+        count += (choices * (choices + 1)) / 2;
+      }
       run = 0;
     }
   }
-  if (run >= minDuration) count += 1;
+  if (run >= minDuration) {
+    const choices = run - minDuration + 1;
+    count += (choices * (choices + 1)) / 2;
+  }
   return count;
 }`,
 
@@ -1295,34 +1398,41 @@ const SOLVERS: Record<string, SolverFactory> = {
   const n = nums[at++], m = nums[at++];
   const pages = [0];
   for (let i = 0; i < n; i++) pages.push(nums[at++]);
-  const parent = Array(n + 1).fill(0);
-  const out = Array(n + 1).fill(0);
+  const children = Array.from({ length: n + 1 }, () => []);
+  const hasParent = Array(n + 1).fill(false);
   for (let i = 0; i < m; i++) {
     const a = nums[at++], b = nums[at++];
-    parent[b] = a;
-    out[a] += 1;
+    children[a].push(b);
+    hasParent[b] = true;
   }
-  const sinks = [];
-  for (let i = 1; i <= n; i++) if (out[i] === 0) sinks.push(i);
-  const chains = new Map();
-  const chainFor = (x) => {
-    if (chains.has(x)) return chains.get(x);
-    const set = new Set();
-    let cur = x;
-    while (cur) { set.add(cur); cur = parent[cur]; }
-    chains.set(x, set);
-    return set;
-  };
-  let best = Infinity;
-  for (let i = 0; i < sinks.length; i++) {
-    for (let j = i + 1; j < sinks.length; j++) {
-      const union = new Set([...chainFor(sinks[i]), ...chainFor(sinks[j])]);
-      let total = 0;
-      for (const chapter of union) total += pages[chapter];
-      best = Math.min(best, total);
+  for (let i = 1; i <= n; i++) if (!hasParent[i]) children[0].push(i);
+  const order = [0];
+  for (let qi = 0; qi < order.length; qi++) {
+    for (const child of children[order[qi]]) order.push(child);
+  }
+  const INF = 1e18;
+  const one = Array(n + 1).fill(INF);
+  const two = Array(n + 1).fill(INF);
+  for (let oi = order.length - 1; oi >= 0; oi--) {
+    const node = order[oi];
+    if (children[node].length === 0) {
+      one[node] = pages[node];
+      continue;
     }
+    let bestOne = INF, secondOne = INF, bestTwo = INF;
+    for (const child of children[node]) {
+      if (one[child] < bestOne) {
+        secondOne = bestOne;
+        bestOne = one[child];
+      } else if (one[child] < secondOne) {
+        secondOne = one[child];
+      }
+      if (two[child] < bestTwo) bestTwo = two[child];
+    }
+    one[node] = pages[node] + bestOne;
+    two[node] = pages[node] + Math.min(bestTwo, bestOne + secondOne);
   }
-  return String(best);
+  return String(two[0]);
 }`,
 
   stabletable: () => `function stabletable(input) {
@@ -1384,42 +1494,68 @@ const SOLVERS: Record<string, SolverFactory> = {
   const grid = [];
   for (let i = 0; i < r; i++) grid.push(lines[1 + i].split(/\\s+/));
   const words = lines.slice(1 + r, 1 + r + w);
-  const nodes = [{ next: Object.create(null), end: false }];
-  for (const word of words) {
-    let node = 0;
-    for (const ch of word) {
-      if (nodes[node].next[ch] == null) { nodes[node].next[ch] = nodes.length; nodes.push({ next: Object.create(null), end: false }); }
-      node = nodes[node].next[ch];
+  const base = Math.max(1, ...words.map(word => word.length)) + 1;
+  const states = base * words.length + 1;
+  const rowSize = c * states * 2;
+  const dp = new Int32Array(2 * rowSize);
+  const idx = (parity, col, state, dir) => parity * rowSize + (col * states + state) * 2 + dir;
+  const transitionsFor = (ch) => {
+    const out = [];
+    for (let s = 0; s < words.length; s++) {
+      const word = words[s];
+      for (let t = 0; t < word.length; t++) {
+        if (word[t] !== ch) continue;
+        const from = t === 0 ? 0 : base * s + t;
+        const to = t + 1 < word.length ? base * s + t + 1 : 0;
+        out.push([from, to, t === 0]);
+      }
     }
-    nodes[node].end = true;
+    return out;
+  };
+  const byChar = new Map();
+  for (const row of grid) for (const ch of row) if (!byChar.has(ch)) byChar.set(ch, transitionsFor(ch));
+  for (let row = 0; row < r; row++) {
+    const cur = row & 1;
+    const prev = cur ^ 1;
+    dp.fill(0, cur * rowSize, (cur + 1) * rowSize);
+    for (let col = 0; col < c; col++) {
+      for (const [from, to, startsWord] of byChar.get(grid[row][col]) ?? []) {
+        if (row > 0) {
+          const bestFromAbove = Math.max(dp[idx(prev, col, from, 0)], dp[idx(prev, col, from, 1)]);
+          if (bestFromAbove > 0) {
+            const value = bestFromAbove + 9999;
+            const left = idx(cur, col, to, 0), right = idx(cur, col, to, 1);
+            if (value > dp[left]) dp[left] = value;
+            if (value > dp[right]) dp[right] = value;
+          }
+        } else if (startsWord) {
+          const left = idx(cur, col, to, 0), right = idx(cur, col, to, 1);
+          if (9999 > dp[left]) dp[left] = 9999;
+          if (9999 > dp[right]) dp[right] = 9999;
+        }
+      }
+    }
+    for (let col = 1; col < c; col++) {
+      for (const [from, to] of byChar.get(grid[row][col]) ?? []) {
+        const value = dp[idx(cur, col - 1, from, 0)] - 1;
+        const target = idx(cur, col, to, 0);
+        if (value > dp[target]) dp[target] = value;
+      }
+    }
+    for (let col = c - 2; col >= 0; col--) {
+      for (const [from, to] of byChar.get(grid[row][col]) ?? []) {
+        const value = dp[idx(cur, col + 1, from, 1)] - 1;
+        const target = idx(cur, col, to, 1);
+        if (value > dp[target]) dp[target] = value;
+      }
+    }
   }
-  const id = (row, col) => row * c + col;
-  const q = [];
+  const last = (r - 1) & 1;
+  let best = 0;
   for (let col = 0; col < c; col++) {
-    const node = nodes[0].next[grid[0][col]];
-    if (node != null) q.push([0, col, node, 1n << BigInt(id(0, col)), 1]);
+    best = Math.max(best, dp[idx(last, col, 0, 0)], dp[idx(last, col, 0, 1)]);
   }
-  const seen = new Set();
-  const dirs = [[1,0],[0,-1],[0,1]];
-  for (let qi = 0; qi < q.length; qi++) {
-    const [row, col, node, mask, len] = q[qi];
-    if (row === r - 1 && nodes[node].end) return String(len);
-    const key = row + "," + col + "," + node + "," + mask;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    for (const [dr, dc] of dirs) {
-      const nr = row + dr, nc = col + dc;
-      if (nr < 0 || nr >= r || nc < 0 || nc >= c) continue;
-      const bit = 1n << BigInt(id(nr, nc));
-      if (mask & bit) continue;
-      const ch = grid[nr][nc];
-      const nexts = [];
-      if (nodes[node].next[ch] != null) nexts.push(nodes[node].next[ch]);
-      if (nodes[node].end && nodes[0].next[ch] != null) nexts.push(nodes[0].next[ch]);
-      for (const next of nexts) q.push([nr, nc, next, mask | bit, len + 1]);
-    }
-  }
-  return "impossible";
+  return best > 10000 * (r - 1) ? String(10000 * r - best) : "impossible";
 }`,
 
   walkinthewoods: () => `function walkinthewoods(input) {
@@ -1497,64 +1633,140 @@ const SOLVERS: Record<string, SolverFactory> = {
 }`,
 
   pearls: () => `function pearls(input) {
-  const lines = input.trim().split(/\\n/).map(line => line.trim()).filter(Boolean);
-  const [k, rows, cols] = lines[0].split(/\\s+/).map(Number);
-  const necklace = lines[1];
-  const [startR, startC] = lines[2].split(/\\s+/).map(Number);
-  const order = [
-    ["E", 0, 1],
-    ["N", -1, 0],
-    ["S", 1, 0],
-    ["W", 0, -1]
-  ];
-  const cells = [{ r: startR, c: startC }];
-  const dirs = [];
-  const used = new Set([startR + "," + startC]);
-  const isCorner = (i) => dirs[(i - 1 + k) % k] !== dirs[i];
-  const validPearl = (i) => {
-    const ch = necklace[i];
-    if (ch === ".") return true;
-    const corner = isCorner(i);
-    const before = isCorner((i - 1 + k) % k);
-    const after = isCorner((i + 1) % k);
-    if (ch === "B") return corner && !before && !after;
-    return !corner && (before || after);
+  const tokens = input.trim().split(/\\s+/);
+  let at = 0;
+  const k = Number(tokens[at++]);
+  const rows = Number(tokens[at++]);
+  const cols = Number(tokens[at++]);
+  const necklace = tokens[at++];
+  const doubled = necklace + necklace;
+  if (k % 2 !== 0 || doubled.includes("BB") || doubled.includes("WWW")) return "impossible";
+  const startR = Number(tokens[at++]);
+  const startC = Number(tokens[at++]);
+  const dr = [0, -1, 1, 0];
+  const dc = [1, 0, 0, -1];
+  const opposite = [3, 2, 1, 0];
+  const letters = "ENSW";
+  const locallyValid = (ch, beforeBefore, before, here, after) => {
+    if (ch === "B") return before !== here && beforeBefore === before && here === after;
+    if (ch === "W") return before === here && (beforeBefore !== before || here !== after);
+    return true;
   };
-  const canClose = (r, c, remaining) => {
-    const distance = Math.abs(r - startR) + Math.abs(c - startC);
-    return distance <= remaining && (remaining - distance) % 2 === 0;
-  };
-  const dfs = (step) => {
-    const here = cells[step];
-    if (!canClose(here.r, here.c, k - step)) return null;
-    if (step >= 3 && !validPearl(step - 2)) return null;
-    if (step === k) {
-      if (here.r !== startR || here.c !== startC) return null;
-      for (let i = 0; i < k; i++) if (!validPearl(i)) return null;
-      return dirs.join("");
-    }
-    for (const [ch, dr, dc] of order) {
-      const nr = here.r + dr, nc = here.c + dc;
-      const key = nr + "," + nc;
-      const finalMove = step === k - 1;
-      if (nr < 1 || nr > rows || nc < 1 || nc > cols) continue;
-      if (finalMove) {
-        if (nr !== startR || nc !== startC) continue;
-      } else if (used.has(key)) {
-        continue;
+  const hasClosedDirectionPlan = () => {
+    const span = 2 * k + 1;
+    const offset = k;
+    const encode = (a, b, c, r, col) => (((((a * 4 + b) * 4 + c) * span + r + offset) * span) + col + offset);
+    for (let d0 = 0; d0 < 4; d0++) {
+      for (let d1 = 0; d1 < 4; d1++) {
+        if (d1 === opposite[d0]) continue;
+        for (let d2 = 0; d2 < 4; d2++) {
+          if (d2 === opposite[d1]) continue;
+          let states = new Set([encode(d0, d1, d2, dr[d0] + dr[d1] + dr[d2], dc[d0] + dc[d1] + dc[d2])]);
+          for (let i = 3; i < k && states.size > 0; i++) {
+            const nextStates = new Set();
+            for (const key of states) {
+              let x = key;
+              const col = (x % span) - offset; x = Math.floor(x / span);
+              const row = (x % span) - offset; x = Math.floor(x / span);
+              const c = x % 4; x = Math.floor(x / 4);
+              const b = x % 4; x = Math.floor(x / 4);
+              const a = x % 4;
+              for (let d = 0; d < 4; d++) {
+                if (d === opposite[c]) continue;
+                if (!locallyValid(necklace[i - 1], a, b, c, d)) continue;
+                nextStates.add(encode(b, c, d, row + dr[d], col + dc[d]));
+              }
+            }
+            states = nextStates;
+          }
+          for (const key of states) {
+            let x = key;
+            const col = (x % span) - offset; x = Math.floor(x / span);
+            const row = (x % span) - offset; x = Math.floor(x / span);
+            const c = x % 4; x = Math.floor(x / 4);
+            const b = x % 4; x = Math.floor(x / 4);
+            const a = x % 4;
+            if (row !== 0 || col !== 0 || d0 === opposite[c]) continue;
+            if (locallyValid(necklace[k - 1], a, b, c, d0) &&
+                locallyValid(necklace[0], b, c, d0, d1) &&
+                locallyValid(necklace[1], c, d0, d1, d2)) return true;
+          }
+        }
       }
-      dirs[step] = ch;
-      cells[step + 1] = { r: nr, c: nc };
-      if (!finalMove) used.add(key);
-      const result = dfs(step + 1);
-      if (result != null) return result;
-      if (!finalMove) used.delete(key);
-      dirs.pop();
-      cells.pop();
     }
-    return null;
+    return false;
   };
-  return dfs(0) ?? "impossible";
+  if (!hasClosedDirectionPlan()) return "impossible";
+  const stride = cols + 2;
+  const used = new Uint8Array((rows + 2) * (cols + 2));
+  const pos = (r, c) => r * stride + c;
+  for (let c = 0; c < cols + 2; c++) {
+    used[pos(0, c)] = 1;
+    used[pos(rows + 1, c)] = 1;
+  }
+  for (let r = 1; r <= rows; r++) {
+    used[pos(r, 0)] = 1;
+    used[pos(r, cols + 1)] = 1;
+  }
+  used[pos(startR, startC)] = 1;
+  const ans = Array(k).fill(4);
+  const closeDistance = (dir, r, c) => {
+    let d = Math.abs(r - startR) + Math.abs(c - startC);
+    if ((dir === 0 && r === startR && c > startC) ||
+        (dir === 1 && c === startC && r < startR) ||
+        (dir === 2 && c === startC && r > startR) ||
+        (dir === 3 && r === startR && c < startC)) {
+      d += 2;
+    }
+    return d;
+  };
+  const blockedWhiteFromBorder = (ch, r, c, dir) =>
+    ch === "W" && (((r === 1 || r === rows) && (dir === 1 || dir === 2)) ||
+                   ((c === 1 || c === cols) && (dir === 0 || dir === 3)));
+  const search = (i, r, c, dir) => {
+    const nr = r + dr[dir];
+    const nc = c + dc[dir];
+    if (i < k - 1 && used[pos(nr, nc)] !== 0) return false;
+    const remaining = k - 1 - i;
+    const minimumClose = closeDistance(dir, nr, nc);
+    if (minimumClose > remaining || ((remaining - minimumClose) & 1) !== 0) return false;
+    if (i === k - 1) {
+      if (nr !== startR || nc !== startC) return false;
+      if (necklace[0] === "B") {
+        if (dir === ans[0]) return false;
+        if (dir !== ans[k - 2] || ans[0] !== ans[1]) return false;
+      }
+      if (necklace[0] === "W") {
+        if (dir !== ans[0]) return false;
+        if (ans[0] === ans[1] && ans[k - 2] === dir) return false;
+      }
+      if (necklace[k - 1] === "B" && dir !== ans[0]) return false;
+      if (necklace[k - 1] === "W" && ans[k - 2] === ans[k - 3] && dir === ans[0]) return false;
+      ans[i] = dir;
+      return true;
+    }
+    if (i > 0 && necklace[i + 1] === "B" && dir !== ans[i - 1]) return false;
+    ans[i] = dir;
+    used[pos(nr, nc)] = 1;
+    for (let next = 0; next < 4; next++) {
+      if (next === opposite[dir]) continue;
+      if (blockedWhiteFromBorder(necklace[i + 1], nr, nc, next)) continue;
+      if (i > 0 && necklace[i] === "W" && necklace[i - 1] === "W" && next === dir) continue;
+      if (necklace[i + 1] === "B" && next === dir) continue;
+      if (necklace[i] === "B" && next !== dir) continue;
+      if (necklace[i + 1] === "W" && next !== dir) continue;
+      if (i > 1 && necklace[i] === "W" && ans[i - 1] === ans[i - 2] && next === dir) continue;
+      if (search(i + 1, nr, nc, next)) return true;
+    }
+    used[pos(nr, nc)] = 0;
+    ans[i] = 4;
+    return false;
+  };
+  for (let dir = 0; dir < 4; dir++) {
+    if (blockedWhiteFromBorder(necklace[0], startR, startC, dir)) continue;
+    if (search(0, startR, startC, dir)) return ans.map(d => letters[d]).join("");
+  }
+  return "impossible";
 }`,
 
   allinthefamily: () => `function allinthefamily(input) {
@@ -1788,29 +2000,33 @@ const SOLVERS: Record<string, SolverFactory> = {
 }`,
 
   twochartsbecomeone: () => `function twochartsbecomeone(input) {
-  const lines = input.trim().split(/\\n/).map(line => line.trim()).filter(Boolean);
-  const parse = (s) => {
-    let i = 0;
-    const skip = () => { while (/\\s/.test(s[i] ?? "")) i++; };
-    const node = () => {
-      skip();
-      let num = "";
-      while (/\\d/.test(s[i] ?? "")) num += s[i++];
-      const children = [];
-      skip();
-      while (s[i] === "(") {
-        i++;
-        children.push(node());
-        skip();
-        if (s[i] === ")") i++;
-        skip();
+  const lines = input.replace(/\\r/g, "").split("\\n").filter(line => line.trim().length > 0);
+  const parseParents = (line) => {
+    const parent = new Map();
+    const stack = [0];
+    let depth = 0;
+    for (const ch of line + "\\n") {
+      if (ch >= "0" && ch <= "9") {
+        stack[depth] = (stack[depth] ?? 0) * 10 + (ch.charCodeAt(0) - 48);
+      } else if (ch === "(") {
+        depth += 1;
+        stack[depth] = 0;
+      } else if (ch === ")") {
+        parent.set(stack[depth], stack[depth - 1]);
+        stack[depth] = 0;
+        depth -= 1;
+      } else if (ch === "\\n") {
+        parent.set(stack[depth], -1);
+        stack[depth] = 0;
       }
-      children.sort();
-      return num + "(" + children.join("") + ")";
-    };
-    return node();
+    }
+    return parent;
   };
-  return parse(lines[0]) === parse(lines[1]) ? "Yes" : "No";
+  const a = parseParents(lines[0] ?? "");
+  const b = parseParents(lines[1] ?? "");
+  if (a.size !== b.size) return "No";
+  for (const [node, parent] of a) if (b.get(node) !== parent) return "No";
+  return "Yes";
 }`,
 
   whichwarehouse: () => `function whichwarehouse(input) {
@@ -1820,7 +2036,7 @@ const SOLVERS: Record<string, SolverFactory> = {
   const amount = Array.from({ length: n }, () => Array(p));
   for (let i = 0; i < n; i++) for (let j = 0; j < p; j++) amount[i][j] = nums[at++];
   const dist = Array.from({ length: n }, () => Array(n));
-  for (let to = 0; to < n; to++) for (let from = 0; from < n; from++) {
+  for (let from = 0; from < n; from++) for (let to = 0; to < n; to++) {
     const v = nums[at++];
     dist[from][to] = v < 0 ? Infinity : v;
   }
@@ -1870,6 +2086,132 @@ const SOLVERS: Record<string, SolverFactory> = {
   return String(answer);
 }`,
 
+  fencesmakegoodneighbors: () => `function fencesmakegoodneighbors(input) {
+  const nums = input.trim().split(/\\s+/).map(Number);
+  let at = 0;
+  const n = nums[at++];
+  const xs = new Float64Array(n);
+  const ys = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    xs[i] = nums[at++];
+    ys[i] = nums[at++];
+  }
+  const b1x = nums[at++], b1y = nums[at++];
+  const b2x = nums[at++], b2y = nums[at++];
+  const size = 2 * n;
+  const INF = 1e100;
+  const BETWEEN = 0x10;
+  const THRU_SON = 0x20;
+  const NO_USE = 0x30;
+  const MIN_SON_DIST = 0.0005;
+  const len = new Float64Array(size * size);
+  const cost = new Float64Array(n * size);
+  const masks = new Uint8Array(n * n);
+  const other = new Int32Array(n);
+  const count = new Int16Array(n);
+  cost.fill(-1);
+  other.fill(-1);
+  const lenAt = (i, j) => i * size + j;
+  const costAt = (i, j) => i * size + j;
+  const maskAt = (i, j) => i * n + j;
+  const compLine = (i, j, vx, vy, dx, dy, d) => {
+    const dir1 = ((b1x - vx) * dy - (b1y - vy) * dx) / d;
+    const dir2 = ((b2x - vx) * dy - (b2y - vy) * dx) / d;
+    if (Math.abs(dir1) < MIN_SON_DIST || Math.abs(dir2) < MIN_SON_DIST) {
+      masks[maskAt(i, j)] = THRU_SON;
+      masks[maskAt(j, i)] = THRU_SON;
+    } else if (dir1 * dir2 < 0) {
+      other[i] = j;
+      other[j] = i;
+      count[i] += 1;
+      count[j] += 1;
+      masks[maskAt(i, j)] = BETWEEN;
+      masks[maskAt(j, i)] = BETWEEN;
+    }
+  };
+  for (let i = 1; i < n; i++) {
+    for (let j = i - 1; j >= 0; j--) {
+      const dx = xs[j] - xs[i];
+      const dy = ys[j] - ys[i];
+      const d = Math.hypot(dx, dy);
+      len[lenAt(i, j)] = d;
+      len[lenAt(j, i)] = d;
+      len[lenAt(j, i + n)] = d;
+      len[lenAt(i, j + n)] = d;
+      len[lenAt(i + n, j + n)] = d;
+      len[lenAt(j + n, i + n)] = d;
+      compLine(i, j, xs[i], ys[i], dx, dy, d);
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    cost[costAt(i, i + 1)] = 0;
+    cost[costAt(i, i + 2)] = len[lenAt(i, (i + 2) % n)];
+  }
+  const findCost = (start, end) => {
+    if (end <= start || end >= start + n) return INF;
+    if (start >= n && end >= n) {
+      start -= n;
+      end -= n;
+    }
+    if (end === start + 1) return 0;
+    const ci = costAt(start, end);
+    const cached = cost[ci];
+    if (cached >= 0) return cached;
+    const base = len[lenAt(start, end)];
+    let best = INF;
+    const si = start % n;
+    const ej = end % n;
+    for (let k = start + 1; k < end; k++) {
+      const kk = k % n;
+      if ((masks[maskAt(si, kk)] & NO_USE) !== 0 || (masks[maskAt(kk, ej)] & NO_USE) !== 0) continue;
+      const value = base + findCost(start, k) + findCost(k, end);
+      if (value < best) best = value;
+    }
+    cost[ci] = best;
+    return best;
+  };
+  const topBottom = (i) => {
+    let top = other[i], bot = top;
+    if (top < 0 || (masks[maskAt(i, top)] & BETWEEN) === 0) return null;
+    let seen = 1;
+    let nextTop = (top - 1 + n) % n;
+    while ((masks[maskAt(i, nextTop)] & BETWEEN) !== 0 && seen <= n) {
+      top = nextTop;
+      nextTop = (top - 1 + n) % n;
+      seen += 1;
+    }
+    let nextBot = (bot + 1) % n;
+    while ((masks[maskAt(i, nextBot)] & BETWEEN) !== 0 && seen <= n) {
+      bot = nextBot;
+      nextBot = (bot + 1) % n;
+      seen += 1;
+    }
+    if (seen < 2) return null;
+    if (top > bot) bot += n;
+    return [top, bot];
+  };
+  let answer = INF;
+  for (let i = 0; i < n; i++) {
+    if (count[i] < 2) continue;
+    const range = topBottom(i);
+    if (range == null) continue;
+    const top = range[0], bot = range[1];
+    for (let j1 = bot; j1 > top; j1--) {
+      for (let i1 = top; i1 < j1; i1++) {
+        let j = i1;
+        if (j < i) j += n;
+        let k = i;
+        if (k < j1) k += n;
+        let m = j1;
+        if (m < i1) m += n;
+        const value = findCost(i, j) + findCost(j1, k) + findCost(i1, m);
+        if (value < answer) answer = value;
+      }
+    }
+  }
+  return answer >= INF / 2 ? "IMPOSSIBLE" : answer.toFixed(6);
+}`,
+
   balancingart: () => `function balancingart(input) {
   const nums = input.trim().split(/\\s+/).map(Number);
   let at = 0;
@@ -1882,9 +2224,18 @@ const SOLVERS: Record<string, SolverFactory> = {
     total += w;
   }
   const feasible = (balance) => {
-    const source = n + m, sink = source + 1;
+    if (balance === 0) return true;
+    const need = balance * n;
+    if (need > total) return false;
+    const source = n + m;
+    const sink = source + 1;
     const graph = Array.from({ length: sink + 1 }, () => []);
-    const add = (u, v, cap) => { const a = { to: v, rev: graph[v].length, cap }; const b = { to: u, rev: graph[u].length, cap: 0 }; graph[u].push(a); graph[v].push(b); };
+    const add = (u, v, cap) => {
+      const forward = { to: v, rev: graph[v].length, cap };
+      const back = { to: u, rev: graph[u].length, cap: 0 };
+      graph[u].push(forward);
+      graph[v].push(back);
+    };
     for (let i = 0; i < m; i++) {
       const node = n + i;
       const [a, b, w] = edges[i];
@@ -1894,24 +2245,46 @@ const SOLVERS: Record<string, SolverFactory> = {
     }
     for (let i = 0; i < n; i++) add(i, sink, balance);
     let flow = 0;
-    while (true) {
-      const parent = Array(sink + 1).fill(null);
+    const level = Array(sink + 1).fill(-1);
+    const it = Array(sink + 1).fill(0);
+    const bfs = () => {
+      level.fill(-1);
       const q = [source];
-      parent[source] = [-1, -1];
-      for (let qi = 0; qi < q.length && parent[sink] == null; qi++) {
+      level[source] = 0;
+      for (let qi = 0; qi < q.length; qi++) {
         const u = q[qi];
-        for (let ei = 0; ei < graph[u].length; ei++) {
-          const e = graph[u][ei];
-          if (e.cap > 0 && parent[e.to] == null) { parent[e.to] = [u, ei]; q.push(e.to); }
+        for (const edge of graph[u]) {
+          if (edge.cap > 0 && level[edge.to] < 0) {
+            level[edge.to] = level[u] + 1;
+            q.push(edge.to);
+          }
         }
       }
-      if (parent[sink] == null) break;
-      let aug = Infinity;
-      for (let v = sink; v !== source;) { const [u, ei] = parent[v]; aug = Math.min(aug, graph[u][ei].cap); v = u; }
-      for (let v = sink; v !== source;) { const [u, ei] = parent[v]; const e = graph[u][ei]; e.cap -= aug; graph[v][e.rev].cap += aug; v = u; }
-      flow += aug;
+      return level[sink] >= 0;
+    };
+    const dfs = (u, pushed) => {
+      if (u === sink) return pushed;
+      for (; it[u] < graph[u].length; it[u]++) {
+        const edge = graph[u][it[u]];
+        if (edge.cap <= 0 || level[edge.to] !== level[u] + 1) continue;
+        const addFlow = dfs(edge.to, Math.min(pushed, edge.cap));
+        if (addFlow > 0) {
+          edge.cap -= addFlow;
+          graph[edge.to][edge.rev].cap += addFlow;
+          return addFlow;
+        }
+      }
+      return 0;
+    };
+    while (flow < need && bfs()) {
+      it.fill(0);
+      while (flow < need) {
+        const pushed = dfs(source, need - flow);
+        if (pushed === 0) break;
+        flow += pushed;
+      }
     }
-    return flow === balance * n;
+    return flow === need;
   };
   let lo = 0, hi = Math.floor(total / n), best = 0;
   while (lo <= hi) {

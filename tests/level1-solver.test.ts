@@ -60,6 +60,24 @@ describe("solveKnownProblem", () => {
         ]
       },
       {
+        id: "p3b",
+        title: "Two Charts Become One",
+        tier: "competitive",
+        description: "",
+        signature: "function twochartsbecomeone(input)",
+        starterCode: "function twochartsbecomeone(input) {\n}",
+        testCases: [
+          {
+            args: [makeDeepChartFixture(12000)],
+            expected: "Yes"
+          },
+          {
+            args: ["1 (2)\n9 (8)"],
+            expected: "No"
+          }
+        ]
+      },
+      {
         id: "p4",
         title: "Which Warehouse?",
         tier: "competitive",
@@ -69,7 +87,11 @@ describe("solveKnownProblem", () => {
         testCases: [
           {
             args: ["2 1\n5\n10\n0 100\n1 0"],
-            expected: "5"
+            expected: "10"
+          },
+          {
+            args: ["3 2\n5 10\n0 6\n7 3\n0 3 5\n3 0 9\n5 9 0"],
+            expected: "58"
           }
         ]
       },
@@ -84,6 +106,24 @@ describe("solveKnownProblem", () => {
           {
             args: ["2 2\n1 2\n3 4"],
             expected: "4"
+          }
+        ]
+      },
+      {
+        id: "p5b",
+        title: "Tomb Hater",
+        tier: "competitive",
+        description: "",
+        signature: "function tombhater(input)",
+        starterCode: "function tombhater(input) {\n}",
+        testCases: [
+          {
+            args: ["3 4 1\nX X P X\nX X A T\nX X X H\nPATH"],
+            expected: "4"
+          },
+          {
+            args: ["5 5 2\nX X P X X\nX X A T X\nX X H X X\nX M O X X\nX E X X X\nHOME\nPATH"],
+            expected: "impossible"
           }
         ]
       },
@@ -139,6 +179,18 @@ describe("solveKnownProblem", () => {
         testCases: [
           { args: [[10, 20, 30, 40], 2], expected: 6 },
           { args: [[50, 40, 30], 2], expected: 0 }
+        ]
+      },
+      {
+        id: "p8b",
+        title: "Viral Content Peak Detector",
+        tier: "medium",
+        description: "",
+        signature: "function countViralPeriods(engagement, baseline, minDuration)",
+        starterCode: "function countViralPeriods(engagement, baseline, minDuration) {\n}",
+        testCases: [
+          { args: [[200, 210, 220, 230], 100, 2], expected: 6 },
+          { args: [[100, 150, 200, 180, 120, 250, 300], 150, 2], expected: 2 }
         ]
       },
       {
@@ -221,6 +273,18 @@ describe("solveKnownProblem", () => {
         ]
       },
       {
+        id: "p13b",
+        title: "Alchemical Ingredient Harmonizer",
+        tier: "medium",
+        description: "",
+        signature: "function canHarmonizeIngredients(ingredients, pairs)",
+        starterCode: "function canHarmonizeIngredients(ingredients, pairs) {\n}",
+        testCases: [
+          { args: [["fire", "ice", "earth", "air"], { fire: "ice", earth: "air" }], expected: true },
+          { args: [["light", "dark", "light"], { dark: "light", light: "dark" }], expected: false }
+        ]
+      },
+      {
         id: "p14",
         title: "Interstellar Fuel Optimization",
         tier: "hard",
@@ -231,6 +295,38 @@ describe("solveKnownProblem", () => {
           { args: [[0, 50, 100], [0, 1, 2], 100, 100], expected: 50 },
           { args: [[0, 100, 200, 300], [0, 2, 1, 3], 150, 300], expected: 300 },
           { args: [[0, 40, 80], [5, 1, 9], 100, 80], expected: 240 }
+        ]
+      },
+      {
+        id: "p14b",
+        title: "Hilbert's Hedge Maze",
+        tier: "hard",
+        description: "",
+        signature: "function hilbertshedgemaze(input)",
+        starterCode: "function hilbertshedgemaze(input) {\n}",
+        testCases: [
+          {
+            args: ["2\n3 0 6 2 4\n4 6 14 8 2"],
+            expected: "30\n44"
+          }
+        ]
+      },
+      {
+        id: "p14c",
+        title: "Fences Make Good Neighbors",
+        tier: "competitive",
+        description: "",
+        signature: "function fencesmakegoodneighbors(input)",
+        starterCode: "function fencesmakegoodneighbors(input) {\n}",
+        testCases: [
+          {
+            args: ["6\n0 -50\n-40 10\n0 50\n80 50\n120 0\n80 -50\n-10 0\n100 0"],
+            expected: "354.553591"
+          },
+          {
+            args: ["6\n0 -50\n-30 0\n0 50\n90 50\n120 0\n90 -50\n0 5\n90 -5"],
+            expected: "IMPOSSIBLE"
+          }
         ]
       },
       {
@@ -606,6 +702,12 @@ describe("solveKnownProblem", () => {
     expect(solved.code).toContain("function mystery");
   });
 });
+
+function makeDeepChartFixture(depth: number): string {
+  const labels = Array.from({ length: depth }, (_, i) => i + 1);
+  const chart = labels.join(" (") + ")".repeat(depth - 1);
+  return chart + "\n" + chart;
+}
 
 function assertPassesExamples(code: string, problem: CheetProblem): void {
   const functionName = problem.signature.match(/function\s+([A-Za-z_$][\w$]*)/)?.[1];
