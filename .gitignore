@@ -2,6 +2,7 @@ node_modules/
 dist/
 recon-output/
 level1-output/
+output/
 .env
 .DS_Store
 playwright-report/
