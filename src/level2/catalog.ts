@@ -166,12 +166,22 @@ function isLevel2Project(value: unknown): value is Level2CatalogEntry["project"]
 }
 
 function normalizeQuestion(value: string): string {
-  return value.trim().replace(/\s+/g, " ").toLowerCase();
+  return value
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/['"]/g, "")
+    .replace(/\s+'/g, " ")
+    .replace(/'\s+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 }
 
 function stripGeneratedInstructions(question: string): string {
   return question
     .replace(/\[SYSTEM\]\s*Verification instruction:.*?server can attribute this run\.\s*/gis, "")
+    .replace(/\[SYSTEM\][^\n]*/gi, "")
+    .replace(/lm_[A-Za-z0-9_]+/g, "")
     .replace(/\n+\s*Respond with[\s\S]*$/i, "")
     .trim();
 }

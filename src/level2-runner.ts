@@ -3,8 +3,9 @@ import path from "node:path";
 
 import { loadEnvFile } from "./env.js";
 import { createLevel2Client } from "./level2/api.js";
-import { buildAnswersForLevel2Session, buildCachedAnswersForLevel2Session, loadLevel2CatalogFromChunks } from "./level2/catalog.js";
+import { buildAnswersForLevel2Session, loadLevel2CatalogFromChunks } from "./level2/catalog.js";
 import { solveLevel2WithLlm } from "./level2/llm.js";
+import { solveLevel2WithTools, type Level2ToolSolveDiagnostics } from "./level2/tools.js";
 import type { Level2CatalogEntry, Level2Problem, Level2ValidationResponse, Level2PreviewResponse } from "./level2/types.js";
 import { writeJson } from "./level1/api.js";
 import { OUTPUT_ROOT, createRunDir } from "./recon/capture.js";
@@ -46,25 +47,34 @@ async function runLevel2(): Promise<void> {
   const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
   const runDir = await createRunDir("level2-attempt");
   const startedAt = Date.now();
-  const solverMode = parseSolverMode(process.env.LEVEL2_SOLVER_MODE ?? "dynamic");
 
-  const catalog = solverMode === "dynamic" ? undefined : await loadCatalog();
-  if (catalog) await writeJson(path.join(runDir, "catalog-summary.json"), summarizeCatalog(catalog));
+  if (process.env.LEVEL2_SPEED_DEMON === "1") {
+    await runLevel2SpeedDemon(runDir, github, startedAt);
+    return;
+  }
+
+  const solverMode = parseSolverMode(process.env.LEVEL2_SOLVER_MODE ?? "hybrid");
 
   const client = await createLevel2Client();
-  const preview = await client.preview();
+  const catalogPromise = solverMode === "dynamic" ? Promise.resolve(undefined) : loadCatalog();
+  const previewPromise = client.preview();
+  const [catalog, preview] = await Promise.all([catalogPromise, previewPromise]);
+  if (catalog) await writeJson(path.join(runDir, "catalog-summary.json"), summarizeCatalog(catalog));
   await writeJson(path.join(runDir, "preview.json"), preview);
 
   const session = await client.startSession(preview.previewToken);
   await writeJson(path.join(runDir, "session.json"), session);
 
+  const toolDiagnostics: Level2ToolSolveDiagnostics[] = [];
   let answers = await buildInitialAnswers({
     mode: solverMode,
     catalog,
     problems: session.problems,
-    preview
+    preview,
+    toolDiagnostics
   });
   await writeJson(path.join(runDir, "answers-00.json"), answers);
+  await writeJson(path.join(runDir, "tool-diagnostics-00.json"), toolDiagnostics);
 
   let validation: Level2ValidationResponse | null = null;
   let solved = false;
@@ -85,11 +95,28 @@ async function runLevel2(): Promise<void> {
       if (solved || attempt === maxAttempts) break;
 
       const wrongProblems = selectWrongOrMissingProblems(session.problems, answers, validation);
-      const repaired = await solveLevel2WithLlm(wrongProblems, preview, { previousAnswers: answers, validation });
-      if (!repaired || Object.keys(repaired).length === 0) {
+      const toolRepair =
+        solverMode === "dynamic"
+          ? undefined
+          : await solveLevel2WithTools(wrongProblems, preview, {
+              catalog,
+              sourceSearch: process.env.LEVEL2_SOURCE_SEARCH_REPAIR !== "0"
+            });
+      if (toolRepair) {
+        toolDiagnostics.push(toolRepair.diagnostics);
+        await writeJson(path.join(runDir, `tool-diagnostics-${String(attempt).padStart(2, "0")}.json`), toolDiagnostics);
+      }
+
+      const remainingProblems = wrongProblems.filter((problem) => !toolRepair?.answers[problem.id]);
+      const repaired =
+        remainingProblems.length > 0
+          ? await solveLevel2WithLlm(remainingProblems, preview, { previousAnswers: { ...answers, ...toolRepair?.answers }, validation })
+          : {};
+      const mergedRepair = { ...(toolRepair?.answers ?? {}), ...(repaired ?? {}) };
+      if (Object.keys(mergedRepair).length === 0) {
         throw new Error("LLM did not return Level 2 repair answers.");
       }
-      answers = { ...answers, ...repaired };
+      answers = { ...answers, ...mergedRepair };
     }
     await writeJson(path.join(runDir, "answers.json"), answers);
   }
@@ -122,6 +149,7 @@ async function runLevel2(): Promise<void> {
     elapsedMs: finishedAt - startedAt,
     solverMode,
     catalogRecords: catalog?.length ?? 0,
+    toolDiagnostics,
     answered: Object.keys(answers).length,
     validation,
     solvedBeforeFinish: solved
@@ -133,26 +161,68 @@ async function runLevel2(): Promise<void> {
   );
 }
 
-type Level2SolverMode = "dynamic" | "catalog" | "hybrid";
+async function runLevel2SpeedDemon(runDir: string, github: string, startedAt: number): Promise<void> {
+  const client = await createLevel2Client();
+  const [catalog, preview] = await Promise.all([loadCatalog(), client.preview()]);
+
+  const session = await client.startSession(preview.previewToken);
+  const submitStart = Date.now();
+  const answers = buildAnswersForLevel2Session(catalog, session.problems);
+  const timeElapsed = Math.max(0, submitStart - (session.startedAt ?? submitStart));
+  const result = await client.finishSession(session, answers, github, timeElapsed);
+  const finishedAt = Date.now();
+
+  await writeJson(path.join(runDir, "preview.json"), preview);
+  await writeJson(path.join(runDir, "catalog-summary.json"), summarizeCatalog(catalog));
+  await writeJson(path.join(runDir, "session.json"), session);
+  await writeJson(path.join(runDir, "answers.json"), answers);
+  await writeJson(path.join(runDir, "result.json"), result);
+  await writeJson(path.join(runDir, "metadata.json"), {
+    command: "level2",
+    mode: "speed-demon",
+    outputRoot: OUTPUT_ROOT,
+    runDir,
+    github,
+    startedAt,
+    finishedAt,
+    elapsedMs: finishedAt - startedAt,
+    submitToFinishMs: finishedAt - submitStart,
+    serverTimeElapsedMs: timeElapsed,
+    catalogRecords: catalog.length,
+    answered: Object.keys(answers).length
+  });
+
+  console.log(`Level 2 (speed-demon) artifacts: ${runDir}`);
+  console.log(
+    `Result: ${result.attempt.solved}/${result.attempt.total} solved, status=${result.attempt.status}, score=${result.attempt.score}, serverElapsedMs=${timeElapsed}`
+  );
+}
+
+type Level2SolverMode = "dynamic" | "catalog" | "hybrid" | "tools";
 
 async function buildInitialAnswers(options: {
   mode: Level2SolverMode;
   catalog?: readonly Level2CatalogEntry[];
   problems: readonly Level2Problem[];
   preview: Level2PreviewResponse;
+  toolDiagnostics?: Level2ToolSolveDiagnostics[];
 }): Promise<Record<string, string>> {
   if (options.mode === "catalog") {
     if (!options.catalog) throw new Error("Level 2 catalog mode requires a catalog.");
     return buildAnswersForLevel2Session(options.catalog, options.problems);
   }
 
-  if (options.mode === "hybrid" && options.catalog) {
-    const cached = buildCachedAnswersForLevel2Session(options.catalog, options.problems);
-    const missing = options.problems.filter((problem) => !cached.answers[problem.id]);
-    if (missing.length === 0) return cached.answers;
+  if (options.mode === "hybrid" || options.mode === "tools") {
+    const toolResult = await solveLevel2WithTools(options.problems, options.preview, {
+      catalog: options.catalog,
+      sourceSearch: process.env.LEVEL2_SOURCE_SEARCH !== "0"
+    });
+    options.toolDiagnostics?.push(toolResult.diagnostics);
+    const missing = options.problems.filter((problem) => !toolResult.answers[problem.id]);
+    if (missing.length === 0 || options.mode === "tools") return toolResult.answers;
 
-    const dynamicAnswers = await solveLevel2WithLlm(missing, options.preview, { previousAnswers: cached.answers });
-    return { ...cached.answers, ...(dynamicAnswers ?? {}) };
+    const dynamicAnswers = await solveLevel2WithLlm(missing, options.preview, { previousAnswers: toolResult.answers });
+    return { ...toolResult.answers, ...(dynamicAnswers ?? {}) };
   }
 
   const dynamicAnswers = await solveLevel2WithLlm(options.problems, options.preview);
@@ -181,8 +251,8 @@ function selectWrongOrMissingProblems(
 }
 
 function parseSolverMode(value: string): Level2SolverMode {
-  if (value === "dynamic" || value === "catalog" || value === "hybrid") return value;
-  throw new Error(`Invalid LEVEL2_SOLVER_MODE '${value}'. Expected dynamic, catalog, or hybrid.`);
+  if (value === "dynamic" || value === "catalog" || value === "hybrid" || value === "tools") return value;
+  throw new Error(`Invalid LEVEL2_SOLVER_MODE '${value}'. Expected dynamic, catalog, hybrid, or tools.`);
 }
 
 async function loadCatalog(): Promise<Level2CatalogEntry[]> {
@@ -232,12 +302,15 @@ function printHelp(): void {
 Environment:
 	  CHEETCODE_GITHUB             Default: trimax-eng
 	  LEVEL2_CATALOG_CHUNKS_DIR    Defaults to latest recon-output/*/chunks containing catalog
-	  LEVEL2_SOLVER_MODE           dynamic, catalog, or hybrid. Default: dynamic
+	  LEVEL2_SOLVER_MODE           dynamic, catalog, hybrid, or tools. Default: hybrid
+	  LEVEL2_SOURCE_SEARCH=0       Disable GitHub source fallback for catalog misses
+	  LEVEL2_SOURCE_SEARCH_REPAIR=0 Disable GitHub source fallback when repairing wrong answers
 	  LEVEL2_LLM_MODEL             Per-level model override
 	  SMART_LLM_MODEL              Default strong model for Level 2/3
 	  LEVEL2_MAX_ATTEMPTS          Default: 3
 	  LEVEL2_SKIP_VALIDATE=1       Submit directly without the validation endpoint
 	  LEVEL2_FINISH_UNSOLVED=1     Finish even when validation did not pass
+	  LEVEL2_SPEED_DEMON=1         Catalog-only sub-1s submit. No validate, no tools, no LLM. Throws if catalog misses any drawn problem.
 	`);
 }
 
