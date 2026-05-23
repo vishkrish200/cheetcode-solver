@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { resolveModel, resolveModelCandidates } from "../src/llm/client.js";
+import { hasLlmConfig, requireLlmConfig, resolveLlmConfig, resolveModel, resolveModelCandidates } from "../src/llm/client.js";
 
 const savedEnv = { ...process.env };
 
@@ -47,5 +47,59 @@ describe("resolveModel", () => {
     process.env.LEVEL3_LLM_FALLBACK_MODELS = "fallback-a, fallback-b";
 
     expect(resolveModelCandidates("level3")).toEqual(["primary", "fallback-a", "fallback-b"]);
+  });
+
+  it("uses OpenAI credentials and base URL when the provider is explicitly OpenAI", () => {
+    process.env.LEVEL3_LLM_PROVIDER = "openai";
+    process.env.CEREBRAS_API_KEY = "cerebras-key";
+    process.env.OPENAI_API_KEY = "openai-key";
+    process.env.LLM_BASE_URL = "https://api.cerebras.ai/v1";
+    delete process.env.OPENAI_API_BASE;
+    delete process.env.CEREBRAS_API_BASE;
+
+    const config = resolveLlmConfig("level3");
+
+    expect(config?.provider).toBe("openai");
+    expect(config?.apiKey).toBe("openai-key");
+    expect(config?.baseUrl).toBe("https://api.openai.com/v1");
+  });
+
+  it("treats Anthropic as a first-class configured provider", () => {
+    process.env.LEVEL3_LLM_PROVIDER = "anthropic";
+    process.env.ANTHROPIC_API_KEY = "anthropic-key";
+    process.env.LLM_BASE_URL = "https://api.cerebras.ai/v1";
+    delete process.env.CEREBRAS_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.LLM_API_KEY;
+    delete process.env.ANTHROPIC_API_BASE;
+
+    const config = resolveLlmConfig("level3");
+
+    expect(hasLlmConfig()).toBe(true);
+    expect(config?.provider).toBe("anthropic");
+    expect(config?.apiKey).toBe("anthropic-key");
+    expect(config?.baseUrl).toBe("https://api.anthropic.com");
+  });
+
+  it("fails preflight before a timed run when an explicit provider is missing credentials", () => {
+    process.env.LEVEL3_LLM_PROVIDER = "anthropic";
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.LLM_API_KEY;
+
+    expect(() => requireLlmConfig("level3")).toThrow(/ANTHROPIC_API_KEY/);
+  });
+
+  it("treats Codex CLI as a configured GPT-5.5 provider without API keys", () => {
+    process.env.LEVEL3_LLM_PROVIDER = "codex-cli";
+    delete process.env.LEVEL3_LLM_MODEL;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.CEREBRAS_API_KEY;
+    delete process.env.LLM_API_KEY;
+
+    expect(hasLlmConfig()).toBe(true);
+    expect(requireLlmConfig("level3")).toBeUndefined();
+    expect(resolveModel("level3")).toBe("gpt-5.5");
+    expect(resolveModelCandidates("level3")).toEqual(["gpt-5.5"]);
   });
 });

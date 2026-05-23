@@ -9,7 +9,7 @@ import type { NetworkRecord, RunMetadata } from "./types.js";
 
 export const TARGET_URL = process.env.CHEETCODE_URL ?? "https://ctf.firecrawl.dev/";
 export const OUTPUT_ROOT = path.resolve(process.env.RECON_OUTPUT_DIR ?? "recon-output");
-export const STORAGE_STATE_PATH = path.join(OUTPUT_ROOT, "storage-state.json");
+export const STORAGE_STATE_PATH = path.resolve(process.env.AUTH_STORAGE_STATE_PATH ?? path.join(OUTPUT_ROOT, "storage-state.json"));
 
 const MAX_BODY_BYTES = Number(process.env.RECON_MAX_BODY_BYTES ?? 64_000);
 const MAX_WS_FRAME_BYTES = Number(process.env.RECON_MAX_WS_FRAME_BYTES ?? 16_000);
@@ -48,6 +48,8 @@ export async function createRunDir(kind: string): Promise<string> {
   await fs.mkdir(runDir, { recursive: true });
   await fs.mkdir(path.join(runDir, "screenshots"), { recursive: true });
   await fs.mkdir(path.join(runDir, "dom"), { recursive: true });
+  await fs.mkdir(path.join(runDir, "state"), { recursive: true });
+  await fs.mkdir(path.join(runDir, "text"), { recursive: true });
   return runDir;
 }
 
@@ -55,6 +57,100 @@ export async function capturePageState(page: Page, runDir: string, label: string
   const safeLabel = label.replace(/[^a-z0-9_-]+/gi, "-");
   await fs.writeFile(path.join(runDir, "dom", `${safeLabel}.html`), await page.content());
   await page.screenshot({ path: path.join(runDir, "screenshots", `${safeLabel}.png`), fullPage: true });
+  const state = await collectPageState(page).catch((error: unknown) => ({
+    captureError: error instanceof Error ? error.message : String(error)
+  }));
+  await fs.writeFile(path.join(runDir, "state", `${safeLabel}.json`), `${JSON.stringify(state, null, 2)}\n`);
+  if ("bodyText" in state && typeof state.bodyText === "string") {
+    await fs.writeFile(path.join(runDir, "text", `${safeLabel}.txt`), redactText(state.bodyText));
+  }
+}
+
+async function collectPageState(page: Page): Promise<Record<string, unknown>> {
+  return page.evaluate(() => {
+    const readStorage = (storage: Storage): Record<string, string> => {
+      const entries: Record<string, string> = {};
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index);
+        if (key) entries[key] = storage.getItem(key) ?? "";
+      }
+      return entries;
+    };
+
+    const safeReadStorage = (name: "localStorage" | "sessionStorage"): Record<string, string> | { error: string } => {
+      try {
+        return readStorage(window[name]);
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : String(error) };
+      }
+    };
+
+    return {
+      url: location.href,
+      title: document.title,
+      readyState: document.readyState,
+      bodyText: document.body?.innerText ?? "",
+      selectionText: window.getSelection()?.toString() ?? "",
+      activeElement: document.activeElement
+        ? {
+            tagName: document.activeElement.tagName,
+            text: (document.activeElement.textContent ?? "").slice(0, 2_000),
+            outerHTML: document.activeElement.outerHTML.slice(0, 5_000)
+          }
+        : null,
+      inputs: Array.from(document.querySelectorAll<HTMLInputElement>("input")).map((input, index) => ({
+        index,
+        type: input.type,
+        name: input.name,
+        id: input.id,
+        placeholder: input.placeholder,
+        value: input.value,
+        readOnly: input.readOnly,
+        disabled: input.disabled,
+        ariaLabel: input.getAttribute("aria-label"),
+        outerHTML: input.outerHTML.slice(0, 5_000)
+      })),
+      textareas: Array.from(document.querySelectorAll<HTMLTextAreaElement>("textarea")).map((textarea, index) => ({
+        index,
+        name: textarea.name,
+        id: textarea.id,
+        placeholder: textarea.placeholder,
+        value: textarea.value,
+        disabled: textarea.disabled,
+        ariaLabel: textarea.getAttribute("aria-label"),
+        outerHTML: textarea.outerHTML.slice(0, 5_000)
+      })),
+      buttons: Array.from(document.querySelectorAll<HTMLButtonElement>("button")).map((button, index) => ({
+        index,
+        text: button.innerText || button.textContent || "",
+        disabled: button.disabled,
+        ariaLabel: button.getAttribute("aria-label"),
+        outerHTML: button.outerHTML.slice(0, 5_000)
+      })),
+      anchors: Array.from(document.querySelectorAll<HTMLAnchorElement>("a")).map((anchor, index) => ({
+        index,
+        text: anchor.innerText || anchor.textContent || "",
+        href: anchor.href,
+        target: anchor.target,
+        outerHTML: anchor.outerHTML.slice(0, 5_000)
+      })),
+      meta: Array.from(document.querySelectorAll<HTMLMetaElement>("meta")).map((meta, index) => ({
+        index,
+        name: meta.getAttribute("name"),
+        property: meta.getAttribute("property"),
+        content: meta.getAttribute("content")
+      })),
+      resources: performance.getEntriesByType("resource").map((entry) => ({
+        name: entry.name,
+        initiatorType: "initiatorType" in entry ? String(entry.initiatorType) : undefined,
+        startTime: entry.startTime,
+        duration: entry.duration
+      })),
+      userAgent: navigator.userAgent,
+      localStorage: safeReadStorage("localStorage"),
+      sessionStorage: safeReadStorage("sessionStorage")
+    };
+  });
 }
 
 export async function captureAuthenticatedApp(options: CaptureOptions): Promise<string> {
