@@ -24,4 +24,13 @@ describe("package scripts", () => {
     expect(packageJson.scripts["level3:speed-demon"]).toContain("LEVEL3_SPEED_DEMON=1");
     expect(packageJson.scripts["level3:speed-demon"]).toContain("src/level3-runner.ts");
   });
+
+  it("exposes a public v3 contract preflight", () => {
+    const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(packageJson.scripts["v3:preflight"]).toBe("tsx src/ctf-v3-preflight.ts");
+    expect(packageJson.scripts["level1:offline-check"]).toBe("tsx src/level1-offline-check.ts");
+  });
 });

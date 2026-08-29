@@ -33,7 +33,8 @@ interface PlaywrightCookie {
 
 const CHROME_EPOCH_OFFSET_MICROS = 11_644_473_600_000_000;
 const COMET_SUPPORT_DIR = path.join(os.homedir(), "Library", "Application Support", "Comet");
-const COMET_COOKIE_DB = path.join(COMET_SUPPORT_DIR, "Default", "Cookies");
+const COMET_PROFILE = process.env.CHEETCODE_COMET_PROFILE?.trim() || "Default";
+const COMET_COOKIE_DB = path.join(COMET_SUPPORT_DIR, COMET_PROFILE, "Cookies");
 const COMET_KEYCHAIN_SERVICE = "Comet Safe Storage";
 const COOKIE_FILTER_SQL = "(host_key like '%firecrawl.dev' or host_key like '%github.com')";
 
@@ -82,6 +83,7 @@ export async function exportCometStorageState(): Promise<string> {
     `${JSON.stringify(
       {
         command: "auth:comet",
+        cometProfile: COMET_PROFILE,
         cometCookieDb: COMET_COOKIE_DB,
         storageStatePath: STORAGE_STATE_PATH,
         exportedCookieCount: cookies.length,
