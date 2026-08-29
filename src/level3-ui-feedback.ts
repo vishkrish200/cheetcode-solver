@@ -13,6 +13,7 @@ import {
 } from "./level3/ui-feedback.js";
 import { extractLevel3UiSessionFromNetworkRecords } from "./level3/ui-session.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import {
   TARGET_URL,
   capturePageState,
@@ -26,7 +27,7 @@ import { redactText } from "./recon/redact.js";
 loadEnvFile();
 
 async function main(): Promise<void> {
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const codeFile = process.env.LEVEL3_UI_CODE_FILE ?? process.env.LEVEL3_CODE_FILE;
   const targetTask = process.env.LEVEL3_UI_TASK?.trim();
   const targetLanguage = process.env.LEVEL3_UI_LANGUAGE?.trim();

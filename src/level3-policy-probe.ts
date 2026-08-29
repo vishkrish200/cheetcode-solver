@@ -7,6 +7,7 @@ import { loadLevel3CandidateCode } from "./level3/candidates.js";
 import { compileLevel3Source } from "./level3/local-compile.js";
 import type { Level3Challenge } from "./level3/types.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { createRunDir } from "./recon/capture.js";
 
 loadEnvFile();
@@ -52,7 +53,7 @@ async function main(): Promise<void> {
       preview: selectedPreview,
       restored: { taskName: challenge.taskName, language: challenge.language, id: challenge.id }
     });
-    await client.finishSession(session, challenge.starterCode ?? "", process.env.CHEETCODE_GITHUB ?? "trimax-eng", 120_000).catch(
+    await client.finishSession(session, challenge.starterCode ?? "", resolveGithubIdentity(), 120_000).catch(
       () => undefined
     );
     throw new Error(
@@ -89,7 +90,7 @@ async function main(): Promise<void> {
     if (allLevel3ChecksPassed(validation, challenge.checks.length)) break;
   }
 
-  const finish = await client.finishSession(session, lastCode, process.env.CHEETCODE_GITHUB ?? "trimax-eng", 120_000).catch(
+    const finish = await client.finishSession(session, lastCode, resolveGithubIdentity(), 120_000).catch(
     (error: unknown) => ({ error: error instanceof Error ? error.message : String(error) })
   );
   await writeJson(path.join(runDir, "finish-result.json"), finish);

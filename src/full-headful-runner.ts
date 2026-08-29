@@ -7,6 +7,7 @@ import type { BrowserContext, Page, Response } from "playwright";
 
 import { loadEnvFile } from "./env.js";
 import { buildFingerprintHints, writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { hasLlmConfig as hasLevel1LlmConfig, solveWithLlm as solveLevel1WithLlm } from "./level1/llm.js";
 import { solveKnownProblem } from "./level1/solutions.js";
 import type { CheetProblem, FinishResponse, LevelSession, SolvedProblem } from "./level1/types.js";
@@ -63,11 +64,17 @@ function resolveSubmittedTimeElapsedMs(level: 1 | 2 | 3, fallbackMs: number): nu
 async function main(): Promise<void> {
   process.env.HEADED ??= "1";
 
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const runDir = await createRunDir("full-headful-attempt");
   const browser = await launchBrowser();
   const startedAt = Date.now();
   const results: Record<string, unknown> = {};
+  const requestedLevels = new Set(
+    (process.env.FULL_HEADFUL_LEVELS ?? "1,2,3")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
   let context: BrowserContext | undefined;
   let recorder: ReturnType<typeof startNetworkRecorder> | undefined;
   let traceStarted = false;
@@ -85,20 +92,29 @@ async function main(): Promise<void> {
 
     await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+    await clearUiSessionSnapshot(page);
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
     await waitForDashboard(page);
     await capturePageState(page, runDir, "00-dashboard");
 
-    results.level1 = await runLevel1(page, runDir, github);
-    await returnToDashboard(page);
-    await capturePageState(page, runDir, "02-after-level1-finish");
+    if (requestedLevels.has("1")) {
+      results.level1 = await runLevel1(page, runDir, github);
+      await returnToDashboard(page);
+      await capturePageState(page, runDir, "02-after-level1-finish");
+    }
 
-    results.level2 = await runLevel2(page, runDir, github);
-    await returnToDashboard(page);
-    await capturePageState(page, runDir, "04-after-level2-finish");
+    if (requestedLevels.has("2")) {
+      results.level2 = await runLevel2(page, runDir, github);
+      await returnToDashboard(page);
+      await capturePageState(page, runDir, "04-after-level2-finish");
+    }
 
-    results.level3 = await runLevel3Ui(page, runDir, github, recorder.records);
-    await returnToDashboard(page).catch(() => undefined);
-    await capturePageState(page, runDir, "09-final-dashboard").catch(() => undefined);
+    if (requestedLevels.has("3")) {
+      results.level3 = await runLevel3Ui(page, runDir, github, recorder.records);
+      await returnToDashboard(page).catch(() => undefined);
+      await capturePageState(page, runDir, "09-final-dashboard").catch(() => undefined);
+    }
   } finally {
     await writeJson(path.join(runDir, "page-events.json"), pageEvents).catch(() => undefined);
     await recorder?.writeTo(path.join(runDir, "network.json")).catch(() => undefined);
@@ -175,18 +191,48 @@ async function runLevel1(page: Page, runDir: string, github: string): Promise<{
     console.warn(`Level 1 has ${unknown.length}/${submissions.length} unknown/sample-failing problem(s).`);
   }
 
+  const validation = await validateLevel1Submissions(page, session, submissions);
+  await writeJson(path.join(runDir, "level1-validation.json"), validation);
+
   const finish = await browserPostJson<FinishResponse>(page, "/api/level-1/finish", {
     sessionId: session.sessionId,
     github,
     timeElapsed: resolveSubmittedTimeElapsedMs(1, Math.max(0, Date.now() - session.startedAt)),
-    submissions: submissions.map((problem) => ({
-      problemId: problem.problemId,
-      code: problem.code
-    }))
+    submissions: validation.submissions
   });
   await writeJson(path.join(runDir, "level1-result.json"), finish);
   console.log(`Level 1 result: ${finish.attempt.solved}/${finish.attempt.total}`);
   return { session, submissions, finish };
+}
+
+interface Level1BrowserValidationResponse {
+  problemId: string;
+  passed: boolean;
+  [key: string]: unknown;
+}
+
+async function validateLevel1Submissions(
+  page: Page,
+  session: LevelSession,
+  submissions: readonly SolvedProblem[]
+): Promise<{
+  results: Level1BrowserValidationResponse[];
+  submissions: Array<{ problemId: string; code: string }>;
+}> {
+  const exactSubmissions = submissions.map(({ problemId, code }) => ({ problemId, code }));
+  const results = await Promise.all(
+    exactSubmissions.map((submission) =>
+      browserPostJson<Level1BrowserValidationResponse>(page, "/api/level-1/validate", {
+        sessionId: session.sessionId,
+        ...submission
+      })
+    )
+  );
+  const rejected = results.filter((result) => result.passed !== true);
+  if (rejected.length > 0 || results.length !== exactSubmissions.length) {
+    throw new Error(`Level 1 server validation rejected ${rejected.length}/${exactSubmissions.length} submission(s).`);
+  }
+  return { results, submissions: exactSubmissions };
 }
 
 async function runLevel2(page: Page, runDir: string, github: string): Promise<{

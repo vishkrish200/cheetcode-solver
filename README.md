@@ -21,10 +21,17 @@ npm run recon -- sacrifice
 
 ```bash
 npm run recon -- auth:comet
-npm run level1
+npm run level1:fingerprint -- recon-output/<captured-run>/network.json /tmp/cheetcode-fingerprint.json
+CHEETCODE_FINGERPRINT_HINTS_PATH=/tmp/cheetcode-fingerprint.json CHEETCODE_GITHUB=trimaxeng2 npm run level1
 ```
 
-The Level 1 runner starts a fresh session through the captured API contract, solves the returned batch with deterministic specialists, validates against provided examples, and submits once.
+The Level 1 runner starts a fresh session through the captured API contract, solves the returned batch with deterministic specialists, validates every exact submission with `/api/level-1/validate`, and submits the same `problemId`/`code` pairs once. The default identity is the isolated `trimaxeng2` account; set `CHEETCODE_GITHUB` explicitly when using another authenticated account. The legacy `trimax-eng` identity is rejected to prevent accidental cross-account scoring.
+
+Replay and heartbeat traffic are disabled by default because they are restoration telemetry, not part of the finish contract. Enable them only when reproducing a browser session with `CHEETCODE_ENABLE_REPLAY=1`.
+
+The runner now refuses to send the known-invalid synthetic direct-client fingerprint by default. `CHEETCODE_ALLOW_SYNTHETIC_FINGERPRINT=1` is available only for explicitly labeled diagnostic experiments.
+
+For the isolated browser-native Level 1 verification, use `npm run level1:headful`. `npm run full:headful` runs the Level 1, 2, and 3 browser flows.
 
 For dynamic problem banks beyond the specialist catalog, export an OpenAI-compatible key first:
 

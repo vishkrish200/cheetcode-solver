@@ -6,6 +6,7 @@
   "scripts": {
     "install:browsers": "playwright install chromium",
     "full:headful": "HEADED=1 LEVEL3_UI_USE_REGISTERED=1 LEVEL3_UI_PRESTART_RETRIES=20 tsx src/full-headful-runner.ts",
+    "level1:headful": "HEADED=1 FULL_HEADFUL_LEVELS=1 tsx src/full-headful-runner.ts",
     "level1": "tsx src/level1-runner.ts",
     "level1:llm": "LEVEL1_USE_LLM=1 tsx src/level1-runner.ts",
     "level2": "tsx src/level2-runner.ts run",
@@ -27,12 +28,17 @@
     "level3:server-probe": "tsx src/level3-server-probe.ts",
     "level3:scoreboard-probe": "tsx src/level3-scoreboard-probe.ts",
     "level3:ui-feedback": "tsx src/level3-ui-feedback.ts",
+    "local:rehearsal": "tsx scripts/local-rehearsal.ts",
     "zero-retry": "tsx src/zero-retry-runner.ts",
+    "claim": "LEVEL1_SEND_EXPLOITS=1 tsx src/zero-retry-runner.ts",
     "recon": "tsx src/recon.ts",
     "trickery:probe": "tsx src/trickery-probe.ts",
     "flag:diff": "tsx src/flag-diff-probe.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "level1:audit": "tsx src/level1-trace-audit.ts",
+    "level1:fingerprint": "tsx src/level1-fingerprint.ts",
+    "speed-hunt": "tsx src/level1-speed-hunt.ts"
   },
   "dependencies": {
     "playwright": "^1.57.0",

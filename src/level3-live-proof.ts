@@ -7,6 +7,7 @@ import { buildLevel3LlmRequest } from "./level3/llm.js";
 import { compileLevel3Source } from "./level3/local-compile.js";
 import type { Level3Session } from "./level3/types.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { createRunDir } from "./recon/capture.js";
 
 loadEnvFile();
@@ -80,7 +81,7 @@ async function submitLiveProof(runDir: string, codePath: string): Promise<void> 
   const validation = await client.validateCode(session.sessionId, challenge.id, code);
   await writeJson(path.join(runDir, "validation-live-proof.json"), validation);
 
-  const finish = await client.finishSession(session, code, process.env.CHEETCODE_GITHUB ?? "trimax-eng").catch((error: unknown) => ({
+    const finish = await client.finishSession(session, code, resolveGithubIdentity()).catch((error: unknown) => ({
     error: error instanceof Error ? error.message : String(error)
   }));
   await writeJson(path.join(runDir, "finish-live-proof.json"), finish);

@@ -20,6 +20,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { loadEnvFile } from "./env.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { buildCookieHeader, buildFingerprintHints } from "./level1/api.js";
 import { OUTPUT_ROOT, STORAGE_STATE_PATH, TARGET_URL } from "./recon/capture.js";
 
@@ -184,7 +185,7 @@ Environment:
   }
 
   const email = process.env.FLAG_PROBE_EMAIL ?? process.env.SUBMIT_DETAILS_EMAIL;
-  const github = process.env.FLAG_PROBE_GITHUB ?? process.env.CHEETCODE_GITHUB ?? "trimaxeng2";
+  const github = resolveGithubIdentity(process.env.FLAG_PROBE_GITHUB ?? process.env.CHEETCODE_GITHUB);
 
   if (!email) {
     throw new Error("FLAG_PROBE_EMAIL is required. Set it to your email address.");

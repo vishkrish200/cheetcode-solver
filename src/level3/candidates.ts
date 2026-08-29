@@ -46,11 +46,18 @@ const CANDIDATES: readonly Level3Candidate[] = [
     sourcePath: "recon-output/2026-05-19T12-04-55-334Z-level3-attempt/artifact-gpt55-policy-c/policy_candidate.c"
   },
   {
+    // Repaired fork. Two fixes: (1) mutators returned -1/0 where C and C++ (and the
+    // spec's own "audit_get returns 1 for known") use 1=success/0=failure — the
+    // original even contradicted its own audit_get; (2) evaluate_service rebuilt a
+    // visited set per call and memoised nothing, so deep chains were O(n^2). Now a
+    // cross-call per-node aggregate memo keyed on (env, ts, mutation epoch), with
+    // cycle-tainted results deliberately left uncached. Chain 0.3093s -> 0.0004s at
+    // N=4000; 14/14 on gate-harness.c; 192k differential comparisons vs the original
+    // across 4 seeds, 0 divergences. NOT serverVerified.
     taskName: "Dependency Attestation Admission Gate",
     language: "Rust",
-    source: "gpt-5.5",
-    sourcePath:
-      "recon-output/2026-05-19T11-18-20-267Z-level3-attempt/artifact-gpt55-attestation-rust/gate_candidate.rs"
+    source: "manual",
+    sourcePath: "recon-output/manual-candidates/attestation-rust-perf-v1/gate_candidate.rs"
   },
   {
     taskName: "Identity Bundle Auth Resolver",
@@ -67,10 +74,18 @@ const CANDIDATES: readonly Level3Candidate[] = [
     sourcePath: "recon-output/2026-05-19T09-45-20-466Z-level3-attempt/artifact-gpt55-trait-cpp/trait_candidate.cpp"
   },
   {
+    // Perf-repaired fork of artifact-gpt55-attestation-c. The original allocated a
+    // calloc(g_service_count) DFS buffer per gate_check_admission call (O(n) per call,
+    // O(n^2) overall) and discarded its memo between calls. Now: generation-stamped
+    // state cleared in O(1), plus memo reuse keyed on (env, ts, mutation epoch).
+    // 36x faster at N=40k, deep chains 1500x faster; verified by
+    // src/level3/harnesses/gate-harness.c (14/14) and gate-difftest.c
+    // (192k differential comparisons vs the original, 0 divergences).
+    // Still NOT serverVerified — never submitted to the CTF.
     taskName: "Dependency Attestation Admission Gate",
     language: "C",
-    source: "gpt-5.5",
-    sourcePath: "recon-output/2026-05-19T11-09-09-368Z-level3-attempt/artifact-gpt55-attestation-c/gate_candidate.c"
+    source: "manual",
+    sourcePath: "recon-output/manual-candidates/attestation-c-perf-v1/gate_candidate.c"
   },
   {
     taskName: "Trait Expression AST",
@@ -159,10 +174,15 @@ const CANDIDATES: readonly Level3Candidate[] = [
     sourcePath: "recon-output/cross-language-artifacts/session-credential-cpp/credential_candidate.cpp"
   },
   {
+    // Perf-repaired fork: the memo in check_admission_known was rebuilt per call,
+    // so each query re-walked the whole dependency chain. Now kept alive while
+    // (env, ts, mutation epoch) is unchanged. Deep chain 0.4585s -> 0.0001s at
+    // N=4000; 14/14 on src/level3/harnesses/gate-harness.c; 192k differential
+    // comparisons vs the original with 0 divergences. NOT serverVerified.
     taskName: "Dependency Attestation Admission Gate",
     language: "C++",
-    source: "gpt-5.5",
-    sourcePath: "recon-output/cross-language-artifacts/attestation-cpp/gate_candidate.cpp"
+    source: "manual",
+    sourcePath: "recon-output/manual-candidates/attestation-cpp-perf-v1/gate_candidate.cpp"
   },
   {
     taskName: "Identity Bundle Auth Resolver",

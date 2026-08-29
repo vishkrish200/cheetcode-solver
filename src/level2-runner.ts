@@ -8,6 +8,7 @@ import { solveLevel2WithLlm } from "./level2/llm.js";
 import { solveLevel2WithTools, type Level2ToolSolveDiagnostics } from "./level2/tools.js";
 import type { Level2CatalogEntry, Level2Problem, Level2ValidationResponse, Level2PreviewResponse } from "./level2/types.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { OUTPUT_ROOT, createRunDir } from "./recon/capture.js";
 
 loadEnvFile();
@@ -44,7 +45,7 @@ async function previewLevel2(): Promise<void> {
 }
 
 async function runLevel2(): Promise<void> {
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const runDir = await createRunDir("level2-attempt");
   const startedAt = Date.now();
 
@@ -300,7 +301,7 @@ function printHelp(): void {
   npm run level2             Start Level 2, answer from catalog, validate, finish.
 
 Environment:
-	  CHEETCODE_GITHUB             Default: trimax-eng
+	  CHEETCODE_GITHUB             Default: trimaxeng2
 	  LEVEL2_CATALOG_CHUNKS_DIR    Defaults to latest recon-output/*/chunks containing catalog
 	  LEVEL2_SOLVER_MODE           dynamic, catalog, hybrid, or tools. Default: hybrid
 	  LEVEL2_SOURCE_SEARCH=0       Disable GitHub source fallback for catalog misses

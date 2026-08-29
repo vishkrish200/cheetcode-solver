@@ -14,10 +14,11 @@ describe("Level 3 candidate registry", () => {
     expect(findLevel3Candidate("Distributed Flag Snapshot Rollout Engine", "C")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Versioned Policy Rollout Engine", "Rust")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Versioned Policy Rollout Engine", "C")?.source).toBe("gpt-5.5");
-    expect(findLevel3Candidate("Dependency Attestation Admission Gate", "Rust")?.source).toBe("gpt-5.5");
+    expect(findLevel3Candidate("Dependency Attestation Admission Gate", "Rust")?.source).toBe("manual");
     expect(findLevel3Candidate("Identity Bundle Auth Resolver", "Rust")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Trait Expression AST", "C++")?.source).toBe("gpt-5.5");
-    expect(findLevel3Candidate("Dependency Attestation Admission Gate", "C")?.source).toBe("gpt-5.5");
+    // perf-repaired fork of the gpt-5.5 artifact (O(n^2) -> linear); see candidates.ts
+    expect(findLevel3Candidate("Dependency Attestation Admission Gate", "C")?.source).toBe("manual");
     expect(findLevel3Candidate("Trait Expression AST", "Rust")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Trait Expression AST", "C")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Session Credential Rotation Compat Registry", "C")?.source).toBe("gpt-5.5");
@@ -30,7 +31,7 @@ describe("Level 3 candidate registry", () => {
     expect(findLevel3Candidate("16-bit CPU Emulator", "Rust")?.source).toBe("manual");
     expect(findLevel3Candidate("Identity Bundle Auth Resolver", "C++")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Session Credential Rotation Compat Registry", "C++")?.source).toBe("gpt-5.5");
-    expect(findLevel3Candidate("Dependency Attestation Admission Gate", "C++")?.source).toBe("gpt-5.5");
+    expect(findLevel3Candidate("Dependency Attestation Admission Gate", "C++")?.source).toBe("manual");
     expect(findLevel3Candidate("Identity Bundle Auth Resolver", "C")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Lua Bytecode VM", "C++")?.source).toBe("gpt-5.5");
     expect(findLevel3Candidate("Lua Bytecode VM", "C")?.source).toBe("gpt-5.5");

@@ -4,6 +4,7 @@ import path from "node:path";
 import { loadEnvFile } from "./env.js";
 import { OUTPUT_ROOT, createRunDir } from "./recon/capture.js";
 import { createLevel1Client, writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { hasLlmConfig, solveWithLlm } from "./level1/llm.js";
 import { solveKnownProblem } from "./level1/solutions.js";
 import type { CheetProblem, SolvedProblem } from "./level1/types.js";
@@ -11,16 +12,24 @@ import type { CheetProblem, SolvedProblem } from "./level1/types.js";
 loadEnvFile();
 
 async function main(): Promise<void> {
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
+  const enableReplay = process.env.CHEETCODE_ENABLE_REPLAY === "1";
+  const serverValidate = process.env.CHEETCODE_SERVER_VALIDATE !== "0";
   const runDir = await createRunDir("level1-attempt");
-  const client = await createLevel1Client();
+  const client = await createLevel1Client({ enableReplay });
   const startedAt = Date.now();
 
-  const session = await client.startSession();
+  const session = await client.startSession(github);
   await writeJson(path.join(runDir, "session.json"), session);
 
-  const solved = await Promise.all(session.problems.map((problem) => solveAndValidate(problem)));
+  let solved: SolvedProblem[] = [];
+  const stopHeartbeat = enableReplay ? client.startHeartbeat(session, github, () => solved) : () => undefined;
+  solved = await Promise.all(session.problems.map((problem) => solveAndValidate(problem)));
+  stopHeartbeat();
+  if (serverValidate) solved = await client.validateSubmissions(session, solved);
   await writeJson(path.join(runDir, "submissions.json"), solved);
+
+  if (enableReplay) await client.sendReplay(session, github, "state_snapshot", solved);
 
   const unknown = solved.filter((problem) => !problem.known);
   if (unknown.length > 0) {
@@ -39,6 +48,8 @@ async function main(): Promise<void> {
     startedAt,
     finishedAt,
     elapsedMs: finishedAt - startedAt,
+    serverValidated: serverValidate,
+    replayEnabled: enableReplay,
     known: solved.length - unknown.length,
     total: solved.length
   });

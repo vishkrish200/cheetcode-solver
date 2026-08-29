@@ -7,6 +7,7 @@ import type { Page } from "playwright";
 import { loadEnvFile } from "./env.js";
 import { createLevel3Client } from "./level3/api.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import {
   TARGET_URL,
   capturePageState,
@@ -35,7 +36,7 @@ interface ScrollableDescriptor {
 
 async function main(): Promise<void> {
   const runDir = await createRunDir("level3-page-introspect");
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const consoleLogs: unknown[] = [];
   const notes: string[] = [];
   let sessionFromUi: UiLevel3Session | undefined;

@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { loadEnvFile } from "./env.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { allLevel3ChecksPassed, createLevel3Client, type Level3Client } from "./level3/api.js";
 import { loadLevel3CandidateCode } from "./level3/candidates.js";
 import { compileLevel3Source } from "./level3/local-compile.js";
@@ -32,7 +33,7 @@ interface ProbeSummary extends ProbeSubmissionSummary {
 }
 
 async function main(): Promise<void> {
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const runDir = await createRunDir("level3-server-probe");
   const client = await createLevel3Client();
   const targetTask = process.env.LEVEL3_PROBE_TASK?.trim();

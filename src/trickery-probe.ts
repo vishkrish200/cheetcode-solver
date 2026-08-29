@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { loadEnvFile } from "./env.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { buildCookieHeader, buildFingerprintHints, writeJson } from "./level1/api.js";
 import { solveKnownProblem } from "./level1/solutions.js";
 import type { CheetProblem, FinishResponse, LevelSession } from "./level1/types.js";
@@ -536,7 +537,7 @@ function sourceExtension(language: string): string {
 }
 
 function readGithub(): string {
-  return process.env.CHEETCODE_GITHUB?.trim() || "trimaxeng2";
+  return resolveGithubIdentity(process.env.CHEETCODE_GITHUB);
 }
 
 function readPositiveInteger(name: string, fallback: number): number {

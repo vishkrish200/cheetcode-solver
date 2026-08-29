@@ -8,6 +8,7 @@ import { compileLevel3Source } from "./level3/local-compile.js";
 import { scoreLevel3Validation, slugProbeLabel } from "./level3/server-probe.js";
 import type { Level3PreviewResponse, Level3Session } from "./level3/types.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { createRunDir } from "./recon/capture.js";
 
 loadEnvFile();
@@ -32,7 +33,7 @@ interface ScoreboardEntry {
 }
 
 async function main(): Promise<void> {
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const maxPreviews = positiveInt(process.env.LEVEL3_SCOREBOARD_PREVIEWS, 260);
   const maxValidations = positiveInt(process.env.LEVEL3_SCOREBOARD_MAX_VALIDATIONS, 24);
   const includeVerified = process.env.LEVEL3_SCOREBOARD_INCLUDE_VERIFIED !== "0";

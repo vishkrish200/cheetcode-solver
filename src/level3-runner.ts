@@ -33,6 +33,7 @@ import { renderLevel3FamilyTemplate } from "./level3/templates/index.js";
 import type { Level3Challenge, Level3Session, Level3ValidationResponse } from "./level3/types.js";
 import { startLevel3SessionViaUi } from "./level3/ui-session.js";
 import { writeJson } from "./level1/api.js";
+import { resolveGithubIdentity } from "./identity.js";
 import { OUTPUT_ROOT, createRunDir } from "./recon/capture.js";
 
 loadEnvFile();
@@ -93,7 +94,7 @@ async function previewLevel3(): Promise<void> {
 }
 
 async function runLevel3(): Promise<void> {
-  const github = process.env.CHEETCODE_GITHUB ?? "trimax-eng";
+  const github = resolveGithubIdentity();
   const runDir = await createRunDir("level3-attempt");
   const startedAt = Date.now();
 
@@ -787,7 +788,7 @@ function printHelp(): void {
   npm run level3           Start Level 3, ask LLM for code, validate, finish.
 
 Environment:
-	  CHEETCODE_GITHUB          Default: trimax-eng
+	  CHEETCODE_GITHUB          Default: trimaxeng2
 	  LEVEL3_CODE_FILE          Submit/validate code from this file instead of asking the LLM
 	  LEVEL3_PREVIEW_TOKEN      Reuse a safe-preview token instead of drawing a new random challenge
 	  LEVEL3_SOLVER_MODE        dynamic, hybrid, specialist, or candidate. Default: ${DEFAULT_LEVEL3_SOLVER_MODE}
