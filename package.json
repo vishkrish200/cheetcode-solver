@@ -1,55 +1,24 @@
 {
-  "name": "cheetcode-solver",
-  "version": "0.1.0",
+  "name": "cheetcode-ctf-solutions",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "description": "Versioned CheetCode CTF solver research and retrospectives",
+  "workspaces": [
+    "solutions/v2",
+    "solutions/v3"
+  ],
   "scripts": {
-    "install:browsers": "playwright install chromium",
-    "full:headful": "HEADED=1 LEVEL3_UI_USE_REGISTERED=1 LEVEL3_UI_PRESTART_RETRIES=20 tsx src/full-headful-runner.ts",
-    "level1:headful": "HEADED=1 FULL_HEADFUL_LEVELS=1 tsx src/full-headful-runner.ts",
-    "level1": "tsx src/level1-runner.ts",
-    "level1:offline-check": "tsx src/level1-offline-check.ts",
-    "level1:llm": "LEVEL1_USE_LLM=1 tsx src/level1-runner.ts",
-    "level2": "tsx src/level2-runner.ts run",
-    "level2:speed-demon": "LEVEL2_SPEED_DEMON=1 tsx src/level2-runner.ts run",
-    "level2:preview": "tsx src/level2-runner.ts preview",
-    "level3": "LEVEL3_USE_REGISTERED=1 LEVEL3_SKELETON_HOLES=1 tsx src/level3-runner.ts run",
-    "level3:speed-demon": "LEVEL3_SPEED_DEMON=1 tsx src/level3-runner.ts run",
-    "level3:catalog": "tsx src/level3-runner.ts catalog",
-    "level3:candidates:check": "tsx src/level3-candidates-check.ts",
-    "level3:candidate-probe": "tsx src/level3-candidate-probe.ts",
-    "level3:components:preflight": "tsx src/level3-component-preflight.ts",
-    "level3:coverage": "tsx src/level3-coverage.ts",
-    "level3:live-proof": "tsx src/level3-live-proof.ts",
-    "level3:offline": "tsx src/level3-offline-runner.ts",
-    "level3:page-introspect": "tsx src/level3-page-introspect.ts",
-    "level3:policy-probe": "tsx src/level3-policy-probe.ts",
-    "level3:prompt-dump": "tsx src/level3-prompt-dump.ts",
-    "level3:preview": "tsx src/level3-runner.ts preview",
-    "level3:server-probe": "tsx src/level3-server-probe.ts",
-    "level3:scoreboard-probe": "tsx src/level3-scoreboard-probe.ts",
-    "level3:ui-feedback": "tsx src/level3-ui-feedback.ts",
-    "local:rehearsal": "tsx scripts/local-rehearsal.ts",
-    "zero-retry": "tsx src/zero-retry-runner.ts",
-    "claim": "LEVEL1_SEND_EXPLOITS=1 tsx src/zero-retry-runner.ts",
-    "recon": "tsx src/recon.ts",
-    "v3:preflight": "tsx src/ctf-v3-preflight.ts",
-    "trickery:probe": "tsx src/trickery-probe.ts",
-    "flag:diff": "tsx src/flag-diff-probe.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "level1:audit": "tsx src/level1-trace-audit.ts",
-    "level1:fingerprint": "tsx src/level1-fingerprint.ts",
-    "speed-hunt": "tsx src/level1-speed-hunt.ts"
+    "check": "npm run typecheck && npm test",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:v2": "npm run test --workspace @cheetcode-solutions/v2",
+    "test:v3": "npm run test --workspace @cheetcode-solutions/v3",
+    "typecheck:v2": "npm run typecheck --workspace @cheetcode-solutions/v2",
+    "typecheck:v3": "npm run typecheck --workspace @cheetcode-solutions/v3",
+    "rehearse:v3": "npm run local:rehearsal --workspace @cheetcode-solutions/v3",
+    "preflight:v3": "npm run v3:preflight --workspace @cheetcode-solutions/v3 --"
   },
-  "dependencies": {
-    "playwright": "^1.57.0",
-    "zod": "^4.2.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.0.0",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.0",
-    "vitest": "^4.0.0"
+  "engines": {
+    "node": ">=20"
   }
 }

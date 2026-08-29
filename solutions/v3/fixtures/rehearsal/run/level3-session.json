@@ -1,0 +1,17 @@
+{
+  "sessionId": "synthetic-level3-session",
+  "startedAt": 0,
+  "expiresAt": 120000,
+  "level": 3,
+  "problems": [
+    {
+      "id": "synthetic-lua-vm",
+      "title": "Synthetic Lua VM compile rehearsal",
+      "taskName": "Lua Bytecode VM",
+      "language": "C++",
+      "spec": "Synthetic fixture. Compile the registered candidate only.",
+      "starterCode": "",
+      "checks": []
+    }
+  ]
+}

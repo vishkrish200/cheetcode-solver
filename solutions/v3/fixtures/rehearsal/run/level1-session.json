@@ -1,0 +1,21 @@
+{
+  "sessionId": "synthetic-level1-session",
+  "startedAt": 0,
+  "expiresAt": 60000,
+  "level": 1,
+  "problems": [
+    {
+      "id": "synthetic-drum-pattern",
+      "title": "Drum Beat Pattern Generator",
+      "tier": "easy",
+      "description": "Synthetic offline rehearsal fixture.",
+      "signature": "function getDrumForBeat(beatNumber)",
+      "starterCode": "function getDrumForBeat(beatNumber) {}",
+      "testCases": [
+        { "args": [1], "expected": "kick" },
+        { "args": [2], "expected": "snare" },
+        { "args": [5], "expected": "rest" }
+      ]
+    }
+  ]
+}

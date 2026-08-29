@@ -1,0 +1,13 @@
+{
+  "sessionId": "synthetic-level2-session",
+  "startedAt": 0,
+  "expiresAt": 60000,
+  "level": 2,
+  "problems": [
+    {
+      "id": "ff_synthetic_engine",
+      "project": "firefox",
+      "question": "Which engine is named by this synthetic browser fixture?"
+    }
+  ]
+}

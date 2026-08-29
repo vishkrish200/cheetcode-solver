@@ -1,83 +1,53 @@
-# CheetCode Solver
+# CheetCode CTF Solutions
 
-Recon-first harness for the Firecrawl CheetCode CTF.
+Versioned solver research for the Firecrawl CheetCode challenge. The repository keeps the completed V2 and V3 work separate, preserves the useful engineering lessons, and intentionally excludes raw browser sessions, credentials, and generated captures.
 
-## Commands
+This is a historical research archive, not a promise that the current challenge still exposes the same endpoints or scoring rules. No live challenge request is made by the default test or typecheck commands.
+
+## Repository map
+
+| Path | Status | Purpose |
+|---|---|---|
+| [`solutions/v2`](solutions/v2) | Historical | Curated snapshot of the May 2026 V2 solver. |
+| [`solutions/v3`](solutions/v3) | Maintained snapshot | V3 contract checks, solvers, offline rehearsal, and semantic harnesses. |
+| [`docs/findings`](docs/findings) | Curated evidence | Score reconstruction, failure analysis, and lessons learned. |
+| [`docs/architecture.md`](docs/architecture.md) | Design reference | Shared solver flow and version boundaries. |
+| [`docs/artifacts.md`](docs/artifacts.md) | Data policy | What is safe to commit and what must remain local. |
+
+## Quick start
+
+Requirements: Node.js 20 or newer. A C/C++ compiler is needed for Level 3 semantic checks.
 
 ```bash
 npm install
-npm run install:browsers
-npm run recon -- auth
-# or, if Comet is already logged in:
-npm run recon -- auth:comet
-npm run recon -- cold
-npm run recon -- analyze
-npm run recon -- sacrifice
+npm run check
 ```
 
-`auth` opens a headed browser and saves `recon-output/storage-state.json` after manual GitHub OAuth. `cold` captures the authenticated app without starting the timer. `sacrifice` clicks the orchestrate button and records the timed run. `analyze` summarizes captured network traffic into endpoint hints.
-
-## Level 1 Attempt
+Useful version-specific checks:
 
 ```bash
-npm run recon -- auth:comet
-npm run level1:fingerprint -- recon-output/<captured-run>/network.json /tmp/cheetcode-fingerprint.json
-CHEETCODE_FINGERPRINT_HINTS_PATH=/tmp/cheetcode-fingerprint.json CHEETCODE_GITHUB=trimaxeng2 npm run level1
+npm run test:v2
+npm run test:v3
+npm run typecheck:v2
+npm run typecheck:v3
+npm run rehearse:v3
 ```
 
-The Level 1 runner starts a fresh session through the captured API contract, solves the returned batch with deterministic specialists, validates every exact submission with `/api/level-1/validate`, and submits the same `problemId`/`code` pairs once. The default identity is the isolated `trimaxeng2` account; set `CHEETCODE_GITHUB` explicitly when using another authenticated account. The legacy `trimax-eng` identity is rejected to prevent accidental cross-account scoring.
+`npm run rehearse:v3` is offline: it does not read browser cookies or call the challenge server. Commands that authenticate, start sessions, validate, or finish a challenge are documented inside each version and must only be used with an authorized account.
 
-Replay and heartbeat traffic are disabled by default because they are restoration telemetry, not part of the finish contract. Enable them only when reproducing a browser session with `CHEETCODE_ENABLE_REPLAY=1`.
+## Historical outcomes
 
-The runner now refuses to send the known-invalid synthetic direct-client fingerprint by default. `CHEETCODE_ALLOW_SYNTHETIC_FINGERPRINT=1` is available only for explicitly labeled diagnostic experiments.
+- V2: 60/60 solved and a reconstructed score of 3,950. See [`docs/findings/v2-retrospective.md`](docs/findings/v2-retrospective.md).
+- V3: 60/60 solved and a verified final score of 3,850. See [`docs/findings/v3-retrospective.md`](docs/findings/v3-retrospective.md).
 
-For the isolated browser-native Level 1 verification, use `npm run level1:headful`. `npm run full:headful` runs the Level 1, 2, and 3 browser flows.
+These are historical results backed by private local captures. The raw authenticated artifacts are not part of this repository and the figures are not claims about the current live service.
 
-For dynamic problem banks beyond the specialist catalog, export an OpenAI-compatible key first:
+## Security and scope
 
-```bash
-export CEREBRAS_API_KEY=...
-export LLM_MODEL=gpt-oss-120b
-export SMART_LLM_MODEL=qwen-3-235b-a22b-instruct-2507
-npm run level1
-```
+Never commit `.env` files, Playwright storage state, cookies, fingerprint payloads, HAR files, prompts from private sessions, or unredacted network captures. See [`SECURITY.md`](SECURITY.md) before adding evidence.
 
-## Solver Policy
+This project is not affiliated with or endorsed by Firecrawl. Use it only on systems and accounts you are authorized to test.
 
-Level 1 is cache/rule first and uses the LLM only for unknown or sample-failing problems. Level 2 is tool-first: it answers from the extracted site catalog, can search GitHub source for catalog misses, and only then falls back to the LLM. Level 3 is dynamic/hybrid: it extracts the live session payload, compiles locally, validates on the server, and feeds failures back into repair attempts.
+## License
 
-Useful model knobs:
-
-```bash
-LEVEL1_LLM_MODEL=gpt-oss-120b
-SMART_LLM_MODEL=qwen-3-235b-a22b-instruct-2507
-LEVEL2_LLM_MODEL=qwen-3-235b-a22b-instruct-2507
-LEVEL3_LLM_MODEL=qwen-3-235b-a22b-instruct-2507
-```
-
-Level 2 supports `LEVEL2_SOLVER_MODE=dynamic|hybrid|catalog|tools`; default is `hybrid`. `hybrid` uses the extracted catalog first, optionally searches GitHub source for misses with `LEVEL2_SOURCE_SEARCH=1`, and asks the model only for remaining misses. `tools` disables the final LLM fallback. Level 3 supports `LEVEL3_SOLVER_MODE=dynamic|hybrid|specialist|candidate`; local `.env` defaults to `hybrid`, which tries registered GPT-5.5/task-family candidates first, then specialists, then live synthesis. The default `npm run level3` path enables registered components and `LEVEL3_SKELETON_HOLES=1`, so supported non-component families can use locked skeletons with small per-hole workers before falling back to freeform synthesis.
-
-Before spending a live Level 3 timer, use the offline compiler loop on saved payloads:
-
-```bash
-npm run level3:offline
-npm run level3:offline -- recon-output/<timestamp>-level3-attempt
-```
-
-This does not call the CTF server. It only asks the model for code, compiles locally with strict flags, feeds compiler errors back, and writes artifacts under `recon-output/*-level3-offline`.
-
-## SPEED DEMON Mode
-
-The CTF server awards a `+100` trickery bonus on a level when the entire `startSession → finishSession` round-trip clears the server in under one second with all problems correct (server message: `⚡ SPEED DEMON — You submitted in under 1 second with working solutions.`). The default Level 1 path already triggers it because solutions are looked up synchronously; Level 2 and Level 3 do not, because the default pipelines call validate, tools, and/or LLM in between.
-
-To target SPEED DEMON on Level 2 and Level 3:
-
-```bash
-npm run level2:speed-demon   # catalog-only, no validate, no tools, no LLM
-npm run level3:speed-demon   # registered verified candidate, no local-verify, no server-validate, no repair
-```
-
-Notes:
-- `level2:speed-demon` throws if the catalog is missing any drawn problem. Confirm `recon-output/*/chunks` has a recent Level 2 catalog before running.
-- `level3:speed-demon` throws if no verified candidate is registered for the drawn `(taskName, language)`. Add `LEVEL3_SPEED_DEMON_ALLOW_UNVERIFIED=1` to allow unverified candidates (risk: a non-correct submission misses both correctness base and the bonus).
-- Both modes write a `metadata.json` that reports `submitToFinishMs` (locally observed) and `serverTimeElapsedMs` (sent in the finish body). The actual server-side elapsed is the one that gates SPEED DEMON.
+MIT. See [`LICENSE`](LICENSE).
