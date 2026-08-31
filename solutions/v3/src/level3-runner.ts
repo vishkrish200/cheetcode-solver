@@ -784,7 +784,7 @@ function parseSessionStartMode(value: string): Level3SessionStartMode {
 function printHelp(): void {
   console.log(`Usage:
   npm run level3:preview   Safely fetch current Level 3 prereq preview. Does not start timer.
-  npm run level3 -- catalog Catalog random Level 3 preview assignments. Does not start timer.
+  npm run level3:catalog   Catalog random Level 3 preview assignments. Does not start timer.
   npm run level3           Start Level 3, ask LLM for code, validate, finish.
 
 Environment:

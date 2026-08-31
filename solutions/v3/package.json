@@ -3,6 +3,7 @@
   "version": "3.0.0",
   "description": "CheetCode V3 solver, contract preflight, and offline rehearsal harness",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "install:browsers": "playwright install chromium",
@@ -29,11 +30,10 @@
     "level1:fingerprint": "tsx src/level1-fingerprint.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.12.0 || >=24.0.0"
   },
   "dependencies": {
-    "playwright": "^1.57.0",
-    "zod": "^4.2.0"
+    "playwright": "^1.57.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

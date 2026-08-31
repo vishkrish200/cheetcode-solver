@@ -1,0 +1,30 @@
+name: Bug or documentation gap
+description: Report a reproducibility problem, incorrect behavior, or unclear documentation.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include credentials, cookies, fingerprints, raw captures, private prompts, or account/session identifiers. See SECURITY.md for sensitive reports."
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - V2 historical workspace
+        - V3 workspace
+        - Documentation or repository tooling
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and exact command
+      description: Include OS, Node/compiler versions, working directory relative to the repo, and command. Omit private paths and environment values.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+      description: Add a small synthetic reproducer or redacted error when possible. Local results do not establish a current live-service bug.
+    validations:
+      required: true

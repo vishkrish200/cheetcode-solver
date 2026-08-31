@@ -3,22 +3,34 @@
   "version": "1.0.0",
   "private": true,
   "description": "Versioned CheetCode CTF solver research and retrospectives",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vishkrish200/cheetcode-solver.git"
+  },
+  "homepage": "https://github.com/vishkrish200/cheetcode-solver/tree/codex/open-source-cleanup#readme",
+  "bugs": {
+    "url": "https://github.com/vishkrish200/cheetcode-solver/issues"
+  },
   "workspaces": [
     "solutions/v2",
     "solutions/v3"
   ],
   "scripts": {
-    "check": "npm run typecheck && npm test",
-    "test": "npm run test --workspaces --if-present",
+    "doctor": "node scripts/doctor.mjs",
+    "check": "npm run check:docs && npm run typecheck && npm test",
+    "check:docs": "node scripts/check-docs.mjs",
+    "test": "npm run test:repo && npm run test --workspaces --if-present",
+    "test:repo": "node --test scripts/*.test.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test:v2": "npm run test --workspace @cheetcode-solutions/v2",
     "test:v3": "npm run test --workspace @cheetcode-solutions/v3",
     "typecheck:v2": "npm run typecheck --workspace @cheetcode-solutions/v2",
     "typecheck:v3": "npm run typecheck --workspace @cheetcode-solutions/v3",
-    "rehearse:v3": "npm run local:rehearsal --workspace @cheetcode-solutions/v3",
+    "rehearse:v3": "npm run local:rehearsal --workspace @cheetcode-solutions/v3 --",
     "preflight:v3": "npm run v3:preflight --workspace @cheetcode-solutions/v3 --"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.12.0 || >=24.0.0"
   }
 }

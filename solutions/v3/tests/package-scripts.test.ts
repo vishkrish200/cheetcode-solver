@@ -4,6 +4,12 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("package scripts", () => {
+  it("documents the dedicated non-timed catalog script", () => {
+    const source = readFileSync(path.resolve("src/level3-runner.ts"), "utf8");
+    expect(source).toContain("npm run level3:catalog");
+    expect(source).not.toContain("npm run level3 -- catalog");
+  });
+
   it("routes live Level 3 through registered components by default", () => {
     const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as {
       scripts: Record<string, string>;

@@ -26,7 +26,7 @@ interface CheckResult {
 const logPath = process.env.LEVEL1_SESSION_LOG;
 
 if (!logPath) {
-  console.error("Set LEVEL1_SESSION_LOG to a saved fake-profile API log.");
+  console.error("Set LEVEL1_SESSION_LOG to a trusted, authorized local API log. This command executes saved JavaScript examples; it is not a sandbox.");
   process.exitCode = 1;
 } else {
   checkBatch(path.resolve(logPath))

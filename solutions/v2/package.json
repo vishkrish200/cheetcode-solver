@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "Historical CheetCode V2 solver and offline validation harness",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "install:browsers": "playwright install chromium",
@@ -25,11 +26,10 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.12.0 || >=24.0.0"
   },
   "dependencies": {
-    "playwright": "^1.57.0",
-    "zod": "^4.2.0"
+    "playwright": "^1.57.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

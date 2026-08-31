@@ -204,6 +204,10 @@ function printHelp(): void {
   npm run level3:offline -- <run-dir>     Use a specific recon-output/*-level3-attempt dir
   npm run level3:offline -- <session.json>
 
+This avoids challenge-server calls, but may send prompts/source to a configured
+model provider and incur cost. For the network-free synthetic demo, run the root
+rehearse:v3 command. Native verification is not a security sandbox.
+
 Environment:
   LEVEL3_OFFLINE_MAX_ATTEMPTS   Default: LEVEL3_MAX_ATTEMPTS or 6
   LEVEL3_LLM_MODEL              Per-level primary model

@@ -59,7 +59,9 @@ export async function runLevel3ComponentPreflight(
 
   const entries: Level3ComponentPreflightEntry[] = [];
   for (const candidate of candidates) {
-    const sourcePath = path.resolve(candidate.sourcePath);
+    const sourcePath = path.isAbsolute(candidate.sourcePath)
+      ? candidate.sourcePath
+      : new URL(`../../${candidate.sourcePath}`, import.meta.url);
     const source = normalizeLevel3CandidateCode(await fs.readFile(sourcePath, "utf8"), candidate.language);
     const mode = shouldRunLevel3ComponentSemanticVerification(candidate.taskName) ? "semantic" : "compile";
     const label = safeLabel(`${candidate.taskName}-${candidate.language}`);
@@ -105,5 +107,5 @@ export function safeLevel3ComponentPreflightLabel(value: string): string {
 }
 
 function safeLabel(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return value.toLowerCase().replace(/c\+\+/g, "cpp").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

@@ -7,9 +7,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,5 +22,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run doctor
       - run: npm run check
+      - run: npm run rehearse:v3
       - run: npm audit --audit-level=high

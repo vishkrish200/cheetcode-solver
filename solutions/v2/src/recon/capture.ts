@@ -4,8 +4,12 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { chromium, type Browser, type BrowserContext, type Page, type Request } from "playwright";
 
+import { loadEnvFile } from "../env.js";
 import { redactHeaders, redactText } from "./redact.js";
 import type { NetworkRecord, RunMetadata } from "./types.js";
+
+// Importers use these constants before their own entrypoint bodies execute.
+loadEnvFile();
 
 export const TARGET_URL = process.env.CHEETCODE_URL ?? "https://ctf.firecrawl.dev/";
 export const OUTPUT_ROOT = path.resolve(process.env.RECON_OUTPUT_DIR ?? "recon-output");
