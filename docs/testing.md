@@ -63,6 +63,8 @@ Native tests and generated verifiers run code on the host. Run only trusted code
 
 [CI](../.github/workflows/ci.yml) installs the root lockfile on Ubuntu with Node 22, checks the environment, runs the repository checks and synthetic rehearsal, then audits dependencies. It does not authenticate to CheetCode, install an interactive browser profile, supply provider keys, or submit challenges.
 
+The workflow pins immutable revisions of the official [checkout](https://github.com/actions/checkout/releases/tag/v7.0.1) and [setup-node](https://github.com/actions/setup-node/releases/tag/v7.0.0) actions, reads the project runtime from `.nvmrc`, and does not persist checkout credentials for later test steps.
+
 The public package has one root `package-lock.json`. Keep it in sync with manifest changes. Use `npm ci` for review/reproduction; it replaces local dependency installations with the lockfile's contents.
 
 When reporting verification, include the commit, OS/toolchain, command, exit status, and relevant coverage. The terminal test totals are authoritative for that checkout; a README badge or an older report should not override them.
