@@ -8,8 +8,6 @@ These are **historical outcomes**, not a live benchmark or a promise that today'
 
 [Start locally](#try-it-locally) · [The challenge](docs/challenge.md) · [V2 story](docs/findings/v2-retrospective.md) · [V3 story](docs/findings/v3-retrospective.md) · [Documentation](docs/README.md)
 
-This documented edition lives on `codex/open-source-cleanup`. The `main` branch intentionally preserves the pre-cleanup merge while this edition is reviewed; use the branch-aware clone command below.
-
 ## What was the challenge?
 
 The recorded V3 format allowed **240 seconds** across three very different tasks:
@@ -39,7 +37,7 @@ The [failure analysis](docs/findings/failure-analysis.md) connects these lessons
 Use Node.js 22.12+ in the 22.x line (the CI baseline), or Node 24+, npm, and the `cc`/`c++` compiler commands on macOS or Linux. Rust is optional for the quick start and required for the full native candidate sweep. No challenge account, browser installation, API key, or `.env` file is needed for this path.
 
 ```bash
-git clone --branch codex/open-source-cleanup https://github.com/vishkrish200/cheetcode-solver.git
+git clone https://github.com/vishkrish200/cheetcode-solver.git
 cd cheetcode-solver
 npm ci
 npm run doctor
